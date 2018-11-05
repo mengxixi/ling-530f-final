@@ -2,19 +2,14 @@
 Automatic text summarization is an important task in natural language processing. With the ever-growing amount of textual material emerging, the ability to efficiently and accurately generate summaries becomes crucial. Summaries can allow us to quickly index documents and make selections in a much shorter period of time. It is also less prone to personal bias when performed by a machine. Therefore, in this project, we will explore deep learning methods to hopefully provide a general approach to this problem.
 
 \section{Problem Statement}
-We will implement a deep neural network model which given a short article (e.g., short news stories), it will generate a summary (around 1~3 sentences) that is fluent and concise. If time and computational resources allow, we will extend the problem to a larger setting, for example, generating abstracts from academic publications. 
+We will implement a deep neural network model which given a short article (e.g., short news stories), it will generate a summary (around 1~3 sentences) that is fluent and concise. The process is essentially a sequence-to-sequence learning problem. If time and computational resource allows, we will extend the problem to a larger setting, for example, generating abstracts from academic publications. 
 
 
 
 \section{Methods}
-\begin{compactitem}
-\item Use deep learning. 
-\end{compactitem}
+We will be experimenting with recent advancements in sequence-to-sequence models, which are encoder-decoder recurrent neural networks (RNNs). We will feed in the input article as a sequence of word embeddings from pre-trained language models (GloVe, fastText or Word2Vec). We will also explore options that may enhance our performance, such as attention mechanism, rich sentence features \todo{cite}, convolutional neural networks (CNNs) and other architecture based on further research. \todo{How does your project compare to NLP and deep learning published research?} 
 
-\todo{How does your project compare to NLP and deep learning published research?}
-
-\todo{What are the different steps you will take to ensure success of the project? What are the smaller segments of which the bigger task is composed? And how will you conduct each small task?
-How does the work bread down and what each member of the team be contributing?}
+To ensure a productive progress of our project, we will take the following steps as a breakdown of the larger task. First, we will start with a small dataset of news articles, and we will treat the title as the target summary that we try to generate. This way, we can ensure our overall seq2seq framework is working and able to generate somewhat sensible one-line summaries. Then we will add in enhancement techniques to further improve our model on the ROUGE metric system. Finally, we will scale up the problem by using a more comprehensive dataset in which the summaries are a bit more informative. 
 
 \section{Evaluation}
 \begin{compactitem}

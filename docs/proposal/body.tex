@@ -2,11 +2,11 @@
 Automatic text summarization is an important task in natural language processing (NLP). With the ever-growing amount of textual material emerging, the ability to efficiently and accurately generate summaries becomes crucial \cite{gambhir2017recent}. Summaries can allow us to quickly index documents and make selections with ease. It is also less prone to personal bias when performed by a machine. Therefore, in this project, we will explore deep learning methods and aim to provide a general approach to this problem.
 
 \section{Problem Statement}
-We will implement a recurrent neural network based model which given a short article (e.g., short news stories), it will generate a summary (around 1 to 3 sentences) that is fluent and concise. The process is essentially a sequence-to-sequence learning problem. If time and computational resources allow, we will extend the problem to a larger setting such as generating abstracts from academic publications. 
+We will implement a recurrent neural network (RNN) based model which given a short article (e.g., short news stories), it will generate a summary (around 1 to 3 sentences) that is fluent and concise. The process is essentially a sequence-to-sequence learning problem. If time and computational resources allow, we will extend the problem to a larger setting such as generating abstracts from academic publications. 
 
 
 \section{Methods}
-We will be experimenting with recent advancements in sequence-to-sequence models, which are encoder-decoder recurrent neural networks (RNNs). We will feed in the input article as a sequence of word embeddings from pre-trained language models such as \texttt{GloVe}, \texttt{fastText} or \texttt{Word2Vec} \cite{pennington2014glove, bojanowski2017enriching, mikolov2013efficient}. We will also explore options that may enhance our performance, such as attention mechanism, rich sentence features \cite{nallapati2016abstractive}, convolution neural networks (CNNs) and other techniques based on further research. 
+We will be experimenting with recent advancements in sequence-to-sequence models, which are encoder-decoder RNNs. We will feed in the input article as a sequence of word embeddings from pre-trained language models such as \texttt{GloVe}, \texttt{fastText} or \texttt{Word2Vec} \cite{pennington2014glove, bojanowski2017enriching, mikolov2013efficient}. We will also explore options that may enhance our performance, such as attention mechanism, rich sentence features \cite{nallapati2016abstractive}, convolution neural networks (CNNs) and other techniques based on further research. 
 
 To ensure productive progress of our project, we will take the following steps as a breakdown of the more significant task. First, we will start with a small dataset of news articles, and we will treat the title as the target summary that we try to generate. This way, we can ensure our overall seq2seq framework is working and able to produce sensible one-line summaries. Then we will add in enhancement techniques to further improve our model based on the ROUGE metric system \cite{lin2004rouge}. Finally, we will scale up the problem by using a more comprehensive dataset in which the summaries are more informative. 
 
@@ -33,7 +33,7 @@ The following is a breakdown of the project into subtasks:
 \begin{compactitem}
 \item Baseline neural network (Fan).
 \item Format dataset in input form 
-\item Develop model against the baseline (Fan, Meny, Yin).
+\item Develop model against the baseline (Fan, Meng, Yin).
 \item Word embedding on input sentences.
 \end{compactitem}
 

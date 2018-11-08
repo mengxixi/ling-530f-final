@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
 
 
 import unicodedata
@@ -27,15 +23,10 @@ import matplotlib.ticker as ticker
 import numpy as np
 
 
-# Here we will also define a constant to decide whether to use the GPU (with CUDA specifically) or the CPU. **If you don't have a GPU, set this to `False`**. Later when we create tensors, this variable will be used to decide whether we keep them on CPU or move them to GPU.
-
-# In[2]:
 
 
 USE_CUDA = False
 
-
-# In[3]:
 
 
 PAD_token = 0
@@ -89,12 +80,6 @@ class Lang:
             self.index_word(word)
 
 
-# ### Reading and decoding files
-# 
-# The files are all in Unicode, to simplify we will turn Unicode characters to ASCII, make everything lowercase, and trim most punctuation.
-
-# In[4]:
-
 
 # Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
 def unicode_to_ascii(s):
@@ -110,11 +95,6 @@ def normalize_string(s):
     s = re.sub(r"[^a-zA-Z,.!?]+", r" ", s)
     s = re.sub(r"\s+", r" ", s).strip()
     return s
-
-
-# To read the data file we will split the file into lines, and then split lines into pairs. The files are all English &rarr; Other Language, so if we want to translate from Other Language &rarr; English I added the `reverse` flag to reverse the pairs.
-
-# In[5]:
 
 
 def read_langs(lang1, lang2, reverse=False):
@@ -140,8 +120,6 @@ def read_langs(lang1, lang2, reverse=False):
     return input_lang, output_lang, pairs
 
 
-# In[6]:
-
 
 MIN_LENGTH = 3
 MAX_LENGTH = 25
@@ -154,14 +132,6 @@ def filter_pairs(pairs):
     return filtered_pairs
 
 
-# The full process for preparing the data is:
-# 
-# * Read text file and split into lines
-# * Split lines into pairs and normalize
-# * Filter to pairs of a certain length
-# * Make word lists from sentences in pairs
-
-# In[7]:
 
 
 def prepare_data(lang1_name, lang2_name, reverse=False):
@@ -182,12 +152,6 @@ def prepare_data(lang1_name, lang2_name, reverse=False):
 input_lang, output_lang, pairs = prepare_data('eng', 'fra', True)
 
 
-# ### Filtering vocabularies
-# 
-# To get something that trains in under an hour, we'll trim the data set a bit. First we will use the `trim` function on each language (defined above) to only include words that are repeated a certain amount of times through the dataset (this softens the difficulty of learning a correct translation for words that don't appear often).
-
-# In[8]:
-
 
 MIN_COUNT = 5
 
@@ -195,11 +159,6 @@ input_lang.trim(MIN_COUNT)
 output_lang.trim(MIN_COUNT)
 
 
-# ### Filtering pairs
-# 
-# Now we will go back to the set of all sentence pairs and remove those with unknown words.
-
-# In[9]:
 
 
 keep_pairs = []
@@ -228,15 +187,9 @@ print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs
 pairs = keep_pairs
 
 
-# In[10]:
-
-
 # Return a list of indexes, one for each word in the sentence, plus EOS
 def indexes_from_sentence(lang, sentence):
     return [lang.word2index[word] for word in sentence.split(' ')] + [EOS_token]
-
-
-# In[11]:
 
 
 # Pad a sentence with the PAD symbol
@@ -245,15 +198,8 @@ def pad_seq(seq, max_length):
     return seq
 
 
-# In[12]:
-
-
 def random_batch(batch_size):
     
-    # obtain a random batch with "batch_size"
-    # the batch is converted to number tensors
-    # input_seqs, target_seqs: each element is a sentence tensor
-    # no padding occurs now
     input_seqs = []
     target_seqs = []
 
@@ -263,22 +209,15 @@ def random_batch(batch_size):
         input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
         target_seqs.append(indexes_from_sentence(output_lang, pair[1]))
 
-    # Zip into pairs, sort by length (descending), unzip
-    # sorted based on input_seqs length
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
     input_seqs, target_seqs = zip(*seq_pairs)
     
-    # For input and target sequences, get array of lengths and pad with 0s to max length
-    # use different max_length for input and output sequences
-    # now: both are padded with zeros
     input_lengths = [len(s) for s in input_seqs]
     input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
     
     target_lengths = [len(s) for s in target_seqs]
     target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
 
-    # Turn padded lists into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
-    # -> each column is a sentence with max_len
     input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
     target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
     
@@ -291,10 +230,6 @@ def random_batch(batch_size):
 
 def eval_random_batch(batch_size):
     
-    # obtain a random batch with "batch_size"
-    # the batch is converted to number tensors
-    # input_seqs, target_seqs: each element is a sentence tensor
-    # no padding occurs now
     input_seqs = []
     target_seqs = []
 
@@ -304,22 +239,15 @@ def eval_random_batch(batch_size):
         input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
         target_seqs.append(indexes_from_sentence(output_lang, pair[1]))
 
-    # Zip into pairs, sort by length (descending), unzip
-    # sorted based on input_seqs length
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
     input_seqs, target_seqs = zip(*seq_pairs)
     
-    # For input and target sequences, get array of lengths and pad with 0s to max length
-    # use different max_length for input and output sequences
-    # now: both are padded with zeros
     input_lengths = [len(s) for s in input_seqs]
     input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
     
     target_lengths = [len(s) for s in target_seqs]
     target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
 
-    # Turn padded lists into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
-    # -> each column is a sentence with max_len
     input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
     target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
     
@@ -331,11 +259,6 @@ def eval_random_batch(batch_size):
     return input_var, input_lengths, target_var, target_lengths
 
 
-# We can test this to see that it will return a `(max_len x batch_size)` tensor for input and target sentences, along with a corresponding list of batch lenghts for each (which we will use for masking later).
-
-# # Building the models
-
-# In[13]:
 
 
 class EncoderRNN(nn.Module):
@@ -356,64 +279,24 @@ class EncoderRNN(nn.Module):
         self.n_layers = n_layers
         self.dropout = dropout
         
-        # Embedding(V, D)
-        # input: max_len x batchsize
-        # output: word x batch x embed_dim
         self.embedding = nn.Embedding(input_size, hidden_size)
         
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         
     def forward(self, input_seqs, input_lengths, hidden=None):
-        # Note: we run this all at once (over multiple batches of multiple sequences)
-        
-        # embedding layer takes in a list of padded sequences with max_length
         embedded = self.embedding(input_seqs)
         
-        # embedded.shape = word x batch x embed_dim
-        
-        # pack the embedding according to input_lengths
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        
-        # packed.data.shape = word x embed_dim
-        # pack sequence append all sentences into 1 vector
-        # element of the vector is 1 word -> 3 dim embedding
-#         print(packed.data.shape)
-    
-        
-        # feed into the gru
-        # outputs are in packed sequences form
-        # hidden is the same dimension as input???
-        
-        # packed: a pack sequence input
-        # outputs: a packed sequence output
         outputs, hidden = self.gru(packed, hidden)
         
-        # hidden: tensor
-        # hidden.shape = (?, batch, embed_dim)
+        # unpack (back to padded)
+        outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) 
         
-        
-        # unpack the sequences to padded sequences
-        outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) # unpack (back to padded)
-        
-        
-        
-        # 'outputs': max_len x batch_size x hidden_size
-        # hidden_size -> total number of dimension across all layers
-        # 'hidden': (n_layers * 2) x batch_size x hidden_size
-        
-        
-        
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
-        
+        # Sum bidirectional outputs
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] 
         
         return outputs, hidden
 
-
-# ## Attention Decoder
-
-# ### Implementing an attention module
-
-# In[14]:
 
 
 class Attn(nn.Module):
@@ -503,7 +386,6 @@ class BahdanauAttnDecoderRNN(nn.Module):
     
     def forward(self, word_input, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
-        # TODO: FIX BATCHING
         
         # Get the embedding of the current input word (last output word)
         word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
@@ -907,23 +789,11 @@ def evaluate_randomly():
     evaluate_and_show_attention(input_sentence, target_sentence)
 
 
-# # Visualizing attention
-# 
-# A useful property of the attention mechanism is its highly interpretable outputs. Because it is used to weight specific encoder outputs of the input sequence, we can imagine looking where the network is focused most at each time step.
-# 
-# You could simply run `plt.matshow(attentions)` to see attention output displayed as a matrix, with the columns being input steps and rows being output steps:
-
-# In[26]:
-
 
 import io
 import torchvision
 from PIL import Image
 
-
-# For a better viewing experience we will do the extra work of adding axes and labels:
-
-# In[27]:
 
 
 def evaluate_and_show_attention(input_sentence, target_sentence=None):
@@ -936,18 +806,6 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     
 
 
-# # Putting it all together
-# 
-# **TODO** Run `train_epochs` for `n_epochs`
-
-# To actually train, we call the train function many times, printing a summary as we go.
-# 
-# *Note:* If you're running this notebook you can **train, interrupt, evaluate, and come back to continue training**. Simply run the notebook starting from the following cell (running from the previous cell will reset the models).
-
-# In[28]:
-
-
-# Begin!
 ecs = []
 dcs = []
 eca = 0
@@ -986,31 +844,23 @@ while epoch < n_epochs:
         plot_losses.append(plot_loss_avg)
         plot_loss_total = 0
         
-        # TODO: Running average helper
         ecs.append(eca / plot_every)
         dcs.append(dca / plot_every)
         eca = 0
         dca = 0
 
 
-# ## Plotting training loss
-# 
-# Plotting is done with matplotlib, using the array `plot_losses` that was created while training.
-
-# In[29]:
-
 
 def show_plot(points):
     plt.figure()
     fig, ax = plt.subplots()
-    loc = ticker.MultipleLocator(base=0.2) # put ticks at regular intervals
+    # put ticks at regular intervals
+    loc = ticker.MultipleLocator(base=0.2) 
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
 #show_plot(plot_losses)
 
-
-# In[30]:
 
 
 def evaluate_randomly():
@@ -1026,8 +876,6 @@ def evaluate_randomly():
 evaluate_randomly()
 
 
-# In[31]:
-
 
 def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  loss, name="eng_fra_model.pt"):
     path = "./save/" + name
@@ -1040,24 +888,4 @@ def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  los
                 'loss': loss,
                 }, path)
 save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, loss)
-
-
-# # Exercises
-# 
-# * Try with a different dataset
-#     * Another language pair
-#     * Human &rarr; Machine (e.g. IOT commands)
-#     * Chat &rarr; Response
-#     * Question &rarr; Answer
-# * Replace the embedding pre-trained word embeddings such as word2vec or GloVe
-# * Try with more layers, more hidden units, and more sentences. Compare the training time and results.
-# * If you use a translation file where pairs have two of the same phrase (`I am test \t I am test`), you can use this as an autoencoder. Try this:
-#     * Train as an autoencoder
-#     * Save only the Encoder network
-#     * Train a new Decoder for translation from there
-
-# In[ ]:
-
-
-
 

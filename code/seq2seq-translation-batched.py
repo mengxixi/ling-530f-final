@@ -27,8 +27,6 @@ import numpy as np
 
 USE_CUDA = False
 
-
-
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
@@ -90,10 +88,11 @@ def unicode_to_ascii(s):
 
 # Lowercase, trim, and remove non-letter characters
 def normalize_string(s):
-    s = unicode_to_ascii(s.lower().strip())
-    s = re.sub(r"([,.!?])", r" \1 ", s)
-    s = re.sub(r"[^a-zA-Z,.!?]+", r" ", s)
-    s = re.sub(r"\s+", r" ", s).strip()
+    s = unicode_to_ascii(s.strip())
+    #s = unicode_to_ascii(s.lower().strip())
+    #s = re.sub(r"([,.!?])", r" \1 ", s)
+    #s = re.sub(r"[^a-zA-Z,.!?]+", r" ", s)
+    #s = re.sub(r"\s+", r" ", s).strip()
     return s
 
 
@@ -101,7 +100,6 @@ def read_langs(lang1, lang2, reverse=False):
     print("Reading lines...")
 
     # Read the file and split into lines
-#     filename = '../data/%s-%s.txt' % (lang1, lang2)
     filename = '../data/%s-%s.txt' % (lang1, lang2)
     lines = open(filename).read().strip().split('\n')
 
@@ -344,78 +342,12 @@ class Attn(nn.Module):
         return energy
 
 
-# ### Implementing the Bahdanau et al. model
-# 
-# In summary our decoder should consist of four main parts - an embedding layer turning an input word into a vector; a layer to calculate the attention energy per encoder output; a RNN layer; and an output layer.
-# 
-# The decoder's inputs are the last RNN hidden state $s_{i-1}$, last output $y_{i-1}$, and all encoder outputs $h_*$.
-# 
-# * embedding layer with inputs $y_{i-1}$
-#     * `embedded = embedding(last_rnn_output)`
-# * attention layer $a$ with inputs $(s_{i-1}, h_j)$ and outputs $e_{ij}$, normalized to create $a_{ij}$
-#     * `attn_energies[j] = attn_layer(last_hidden, encoder_outputs[j])`
-#     * `attn_weights = normalize(attn_energies)`
-# * context vector $c_i$ as an attention-weighted average of encoder outputs
-#     * `context = sum(attn_weights * encoder_outputs)`
-# * RNN layer(s) $f$ with inputs $(s_{i-1}, y_{i-1}, c_i)$ and internal hidden state, outputting $s_i$
-#     * `rnn_input = concat(embedded, context)`
-#     * `rnn_output, rnn_hidden = rnn(rnn_input, last_hidden)`
-# * an output layer $g$ with inputs $(y_{i-1}, s_i, c_i)$, outputting $y_i$
-#     * `output = out(embedded, rnn_output, context)`
-
-# In[15]:
 
 
-class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
-        super(BahdanauAttnDecoderRNN, self).__init__()
-        
-        # Define parameters
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.n_layers = n_layers
-        self.dropout_p = dropout_p
-        self.max_length = max_length
-        
-        # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
-        self.dropout = nn.Dropout(dropout_p)
-        self.attn = Attn('concat', hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout_p)
-        self.out = nn.Linear(hidden_size, output_size)
-    
-    def forward(self, word_input, last_hidden, encoder_outputs):
-        # Note: we run this one step at a time
-        
-        # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
-        word_embedded = self.dropout(word_embedded)
-        
-        # Calculate attention weights and apply to encoder outputs
-        attn_weights = self.attn(last_hidden[-1], encoder_outputs)
-        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x 1 x N
-        context = context.transpose(0, 1) # 1 x B x N
-        
-        # Combine embedded input word and attended context, run through RNN
-        rnn_input = torch.cat((word_embedded, context), 2)
-        output, hidden = self.gru(rnn_input, last_hidden)
-        
-        # Final output layer
-        output = output.squeeze(0) # B x N
-        output = F.log_softmax(self.out(torch.cat((output, context), 1)))
-        
-        # Return final output, hidden state, and attention weights (for visualization)
-        return output, hidden, attn_weights
 
-
-# Now we can build a decoder that plugs this Attn module in after the RNN to calculate attention weights, and apply those weights to the encoder outputs to get a context vector.
-
-# In[16]:
-
-
-class LuongAttnDecoderRNN(nn.Module):
+class DecoderRNN(nn.Module):
     def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1):
-        super(LuongAttnDecoderRNN, self).__init__()
+        super(DecoderRNN, self).__init__()
 
         # Keep for reference
         self.attn_model = attn_model
@@ -489,7 +421,7 @@ small_hidden_size = 8
 small_n_layers = 2
 
 encoder_test = EncoderRNN(input_lang.n_words, small_hidden_size, small_n_layers)
-decoder_test = LuongAttnDecoderRNN('general', small_hidden_size, output_lang.n_words, small_n_layers)
+decoder_test = DecoderRNN('general', small_hidden_size, output_lang.n_words, small_n_layers)
 
 if USE_CUDA:
     encoder_test.cuda()
@@ -676,7 +608,7 @@ evaluate_every = 1000
 
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, hidden_size, n_layers, dropout=dropout)
-decoder = LuongAttnDecoderRNN(attn_model, hidden_size, output_lang.n_words, n_layers, dropout=dropout)
+decoder = DecoderRNN(attn_model, hidden_size, output_lang.n_words, n_layers, dropout=dropout)
 
 # Initialize optimizers and criterion
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
@@ -713,12 +645,6 @@ def time_since(since, percent):
     rs = es - s
     return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
 
-
-# # Evaluating the network
-# 
-# Evaluation is mostly the same as training, but there are no targets. Instead we always feed the decoder's predictions back to itself. Every time it predicts a word, we add it to the output string. If it predicts the EOS token we stop there. We also store the decoder's attention outputs for each step to display later.
-
-# In[24]:
 
 
 def evaluate(input_seq, max_length=MAX_LENGTH):

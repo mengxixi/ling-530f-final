@@ -161,3 +161,4 @@ data/tmp/
 models/glove*.txt
 models/crawl-300d-2M-subword.bin
 models/*.ckpt
+code/save/eng_fra_model.pt

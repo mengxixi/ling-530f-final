@@ -32,7 +32,7 @@ import numpy as np
 # In[2]:
 
 
-USE_CUDA = True
+USE_CUDA = False
 
 
 # In[3]:
@@ -122,7 +122,7 @@ def read_langs(lang1, lang2, reverse=False):
 
     # Read the file and split into lines
 #     filename = '../data/%s-%s.txt' % (lang1, lang2)
-    filename = './data/%s-%s.txt' % (lang1, lang2)
+    filename = '../data/%s-%s.txt' % (lang1, lang2)
     lines = open(filename).read().strip().split('\n')
 
     # Split every line into pairs and normalize
@@ -653,7 +653,7 @@ for t in range(max_target_length):
 loss = masked_cross_entropy(
     all_decoder_outputs.transpose(0, 1).contiguous(),
     target_batches.transpose(0, 1).contiguous(),
-    target_lengths
+    target_lengths, USE_CUDA=USE_CUDA
 )
 print('loss', loss.data[0])
 
@@ -710,7 +710,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths
+        target_lengths, USE_CUDA=USE_CUDA
     )
     loss.backward()
     
@@ -755,7 +755,7 @@ def eval_model(input_batches, input_lengths, target_batches, target_lengths, enc
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths
+        target_lengths, USE_CUDA=USE_CUDA
     )
 
     
@@ -786,6 +786,7 @@ teacher_forcing_ratio = 0.5
 learning_rate = 0.0001
 decoder_learning_ratio = 5.0
 n_epochs = 16000
+n_epochs = 2
 epoch = 0
 plot_every = 20
 print_every = 10
@@ -839,6 +840,7 @@ def time_since(since, percent):
 
 
 def evaluate(input_seq, max_length=MAX_LENGTH):
+    #with torch.no_grad(): 
 #     input_lengths = [len(input_seq)]
     input_seqs = [indexes_from_sentence(input_lang, input_seq)]
     input_lengths = [len(input_seq) for input_seq in input_seqs]

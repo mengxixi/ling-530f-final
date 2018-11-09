@@ -106,6 +106,32 @@ def filter_pairs(pairs):
                 filtered_pairs.append(pair)
     return filtered_pairs
 
+# remove out-of-vocab pairs
+# if one of the pair is out-of-vocab, then remove the pair
+def remove_oov_pairs(pairs, input_lang, output_lang):
+    keep_pairs = []
+    for pair in pairs:
+        input_sentence = pair[0]
+        output_sentence = pair[1]
+        keep_input = True
+        keep_output = True
+        
+        for word in input_sentence.split(' '):
+            if word not in input_lang.word2index:
+                keep_input = False
+                break
+
+        for word in output_sentence.split(' '):
+            if word not in output_lang.word2index:
+                keep_output = False
+                break
+
+        # Remove if pair doesn't match input and output conditions
+        if keep_input and keep_output:
+            keep_pairs.append(pair)
+
+    return keep_pairs
+
 
 def prepare_data(lang1_name, lang2_name, reverse=False):
     input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, reverse)

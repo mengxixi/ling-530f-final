@@ -64,11 +64,10 @@ batch_size = 50
 clip = 50.0
 learning_rate = 0.0001
 decoder_learning_ratio = 5.0
-n_epochs = 16000
-n_epochs = 15
+n_epochs = 20000
 epoch = 0
 plot_every = 20
-save_every = 20
+save_every = 200
 print_every = 10
 evaluate_every = 10
 

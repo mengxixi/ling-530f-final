@@ -46,18 +46,19 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     decoder_optimizer.zero_grad()
     loss = 0 # Added onto for each word
 
+    input_batches = input_batches.to(config.device)
+
     # Run words through encoder
     encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
     
     # Prepare input and output variables
-    decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
+    decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size)).to(config.device)
     decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
 
-    max_target_length = max(target_lengths)
-    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
 
-    decoder_input = decoder_input.to(config.device)
-    all_decoder_outputs = all_decoder_outputs.to(config.device)
+    max_target_length = max(target_lengths)
+    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size)).to(config.device)
+
 
     # Run through decoder one time step at a time
     for t in range(max_target_length):
@@ -77,14 +78,15 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     loss.backward()
     
     # Clip gradient norms
-    ec = torch.nn.utils.clip_grad_norm(encoder.parameters(), clip)
-    dc = torch.nn.utils.clip_grad_norm(decoder.parameters(), clip)
+    ec = torch.nn.utils.clip_grad_norm_(encoder.parameters(), clip)
+    dc = torch.nn.utils.clip_grad_norm_(decoder.parameters(), clip)
 
     # Update parameters with optimizers
     encoder_optimizer.step()
     decoder_optimizer.step()
     
-    return loss.data[0], ec, dc
+    #return loss.data[0], ec, dc
+    return loss.item(), ec, dc
 
 
 def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimizer, decoder_optimizer, \

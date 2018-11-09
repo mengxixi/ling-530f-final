@@ -12,10 +12,7 @@ def evaluate(input_seq, encoder, decoder, input_lang, output_lang, max_length=MA
     with torch.no_grad(): 
         input_seqs = [indexes_from_sentence(input_lang, input_seq)]
         input_lengths = [len(input_seq) for input_seq in input_seqs]
-        input_batches = Variable(torch.LongTensor(input_seqs), volatile=True).transpose(0, 1)
-        
-        input_batches = input_batches.to(config.device)
-            
+        input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1).to(config.device)
             
         # Set to not-training mode to disable dropout
         encoder.train(False)
@@ -25,21 +22,22 @@ def evaluate(input_seq, encoder, decoder, input_lang, output_lang, max_length=MA
         encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
 
         # Create starting vectors for decoder
-        decoder_input = Variable(torch.LongTensor([SOS_token]), volatile=True) # SOS
+        decoder_input = Variable(torch.LongTensor([SOS_token])) # SOS
         decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
         
         decoder_input = decoder_input.to(config.device)
 
         # Store output words and attention states
         decoded_words = []
-        decoder_attentions = torch.zeros(max_length + 1, max_length + 1)
+        decoder_attentions = torch.zeros(max_length + 1, max_length + 1).to(config.device)
         
         # Run through decoder
         for di in range(max_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs
             )
-            decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
+            decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
+            #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
 
             # Choose top word from output
             topv, topi = decoder_output.data.topk(1)
@@ -62,13 +60,14 @@ def evaluate(input_seq, encoder, decoder, input_lang, output_lang, max_length=MA
 
 def evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs):
     [input_sentence, target_sentence] = random.choice(pairs)
-
-    output_words, attentions = evaluate(input_sentence, encoder, decoder, input_lang, output_lang)
-    output_sentence = ' '.join(output_words)
-    
     print('>', input_sentence)
     if target_sentence is not None:
         print('=', target_sentence)
+
+    output_words, attentions = evaluate(input_sentence, encoder, decoder, input_lang, output_lang)
+    output_words = output_words
+    output_sentence = ' '.join(output_words)
+    
     print('<', output_sentence)
     
 

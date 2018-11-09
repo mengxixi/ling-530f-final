@@ -42,7 +42,9 @@ Driver START
 """
 fname = "../data/eng_fra/eng-fra.txt"
 fname = "../data/small_news_summary/headline_text.txt"
+fname = "../data/gigaword/small.txt"
 input_lang, output_lang, pairs = prepare_data(fname, True)
+output_lang = input_lang
 
 
 
@@ -60,30 +62,36 @@ pairs = keep_pairs
 HYPERPARAMETER
 """
 attn_model = 'dot'
-hidden_size = 500
+hidden_size = 256
 n_layers = 2
 dropout = 0.1
 
-batch_size = 50
+batch_size = 20
 
 # Configure training/optimization
 clip = 50.0
 learning_rate = 0.0001
 decoder_learning_ratio = 5.0
-n_epochs = 20000
+n_epochs = 4000000
 epoch = 0
 plot_every = 20
 save_every = 200
-print_every = 10
+print_every = 1
 evaluate_every = 10
+weight_decay=0
 
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, hidden_size, n_layers, dropout=dropout)
 decoder = DecoderRNN(attn_model, hidden_size, output_lang.n_words, n_layers, dropout=dropout)
 
 # Initialize optimizers and criterion
-encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
+encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
+
+
+
+
+
 criterion = nn.CrossEntropyLoss()
 
 encoder.to(config.device)

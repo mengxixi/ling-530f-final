@@ -68,10 +68,6 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
 
 
 
-def evaluate_randomly():
-    
-    [input_sentence, target_sentence] = random.choice(pairs)
-    evaluate_and_show_attention(input_sentence, target_sentence)
 
 def evaluate_and_show_attention(input_sentence, target_sentence=None):
     output_words, attentions = evaluate(input_sentence)
@@ -81,5 +77,48 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
         print('=', target_sentence)
     print('<', output_sentence)
     
+
+def evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs):
+    [input_sentence, target_sentence] = random.choice(pairs)
+
+    output_words, attentions = evaluate(input_sentence, encoder, decoder, input_lang)
+    output_sentence = ' '.join(output_words)
+    
+    print('>', input_sentence)
+    if target_sentence is not None:
+        print('=', target_sentence)
+    print('<', output_sentence)
+    
+
+def eval_random_batch(batch_size):
+    
+    input_seqs = []
+    target_seqs = []
+
+    # Choose random pairs
+    for i in range(batch_size):
+        pair = random.choice(pairs)
+        input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
+        target_seqs.append(indexes_from_sentence(output_lang, pair[1]))
+
+    seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
+    input_seqs, target_seqs = zip(*seq_pairs)
+    
+    input_lengths = [len(s) for s in input_seqs]
+    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
+    
+    target_lengths = [len(s) for s in target_seqs]
+    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+
+    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
+    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
+    
+    # move to CUDA
+    if USE_CUDA:
+        input_var = input_var.cuda()
+        target_var = target_var.cuda()
+        
+    return input_var, input_lengths, target_var, target_lengths
+
 
 

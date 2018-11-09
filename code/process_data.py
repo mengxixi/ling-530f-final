@@ -17,8 +17,7 @@ PAD_token = config.PAD_token
 
 
 class Lang:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
         self.trimmed = False
         self.word2index = {}
         self.word2count = {}
@@ -77,12 +76,11 @@ def normalize_string(s):
     return s
 
 
-def read_langs(lang1, lang2, reverse=False):
+def read_langs(fname, reverse=False):
     print("Reading lines...")
 
     # Read the file and split into lines
-    filename = '../data/eng_fra/%s-%s.txt' % (lang1, lang2)
-    lines = open(filename).read().strip().split('\n')
+    lines = open(fname).read().strip().split('\n')
 
     # Split every line into pairs and normalize
     pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
@@ -90,19 +88,21 @@ def read_langs(lang1, lang2, reverse=False):
     # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang(lang2)
-        output_lang = Lang(lang1)
+        input_lang = Lang()
+        output_lang = Lang()
     else:
-        input_lang = Lang(lang1)
-        output_lang = Lang(lang2)
+        input_lang = Lang()
+        output_lang = Lang()
 
     return input_lang, output_lang, pairs
+
+def good_pair(pair):
+    return True
 
 def filter_pairs(pairs):
     filtered_pairs = []
     for pair in pairs:
-        if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH \
-                and len(pair[1]) >= MIN_LENGTH and len(pair[1]) <= MAX_LENGTH:
+        if good_pair(pair):
                 filtered_pairs.append(pair)
     return filtered_pairs
 
@@ -133,8 +133,8 @@ def remove_oov_pairs(pairs, input_lang, output_lang):
     return keep_pairs
 
 
-def prepare_data(lang1_name, lang2_name, reverse=False):
-    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, reverse)
+def prepare_data(fname, reverse=False):
+    input_lang, output_lang, pairs = read_langs(fname, reverse)
     print("Read %d sentence pairs" % len(pairs))
     
     pairs = filter_pairs(pairs)

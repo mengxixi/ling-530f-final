@@ -13,8 +13,8 @@ def init():
     SOS_token = 1
     EOS_token = 2
     MIN_LENGTH = 3
-    MAX_LENGTH = 200
-    MIN_COUNT = 5
+    MAX_LENGTH = 100
+    MIN_COUNT = 1
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 

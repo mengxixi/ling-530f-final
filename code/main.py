@@ -40,7 +40,13 @@ def show_plot(points):
 """
 Driver START
 """
-input_lang, output_lang, pairs = prepare_data('eng', 'fra', True)
+fname = "../data/eng_fra/eng-fra.txt"
+fname = "../data/small_news_summary/headline_text.txt"
+input_lang, output_lang, pairs = prepare_data(fname, True)
+
+
+
+
 
 
 input_lang.trim(MIN_COUNT)

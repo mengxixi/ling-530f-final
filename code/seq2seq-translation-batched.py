@@ -1,28 +1,21 @@
 
 
 import unicodedata
-import string
 import re
 import random
 import time
-import datetime
 import math
-import socket
-hostname = socket.gethostname()
 import datetime
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence#, masked_cross_entropy
+from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 from masked_cross_entropy import *
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-
-
 
 
 USE_CUDA = False
@@ -125,7 +118,7 @@ MAX_LENGTH = 25
 def filter_pairs(pairs):
     filtered_pairs = []
     for pair in pairs:
-        if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH             and len(pair[1]) >= MIN_LENGTH and len(pair[1]) <= MAX_LENGTH:
+        if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH and len(pair[1]) >= MIN_LENGTH and len(pair[1]) <= MAX_LENGTH:
                 filtered_pairs.append(pair)
     return filtered_pairs
 
@@ -340,9 +333,6 @@ class Attn(nn.Module):
             energy = self.attn(torch.cat((hidden, encoder_output), 1))
             energy = torch.dot(self.v.view(-1), energy.view(-1))
         return energy
-
-
-
 
 
 class DecoderRNN(nn.Module):
@@ -604,7 +594,7 @@ n_epochs = 2
 epoch = 0
 plot_every = 20
 print_every = 10
-evaluate_every = 1000
+evaluate_every = 10
 
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, hidden_size, n_layers, dropout=dropout)
@@ -626,11 +616,6 @@ start = time.time()
 plot_losses = []
 print_loss_total = 0 # Reset every print_every
 plot_loss_total = 0 # Reset every plot_every
-
-
-# Plus helper functions to print time elapsed and estimated time remaining, given the current time and progress.
-
-# In[23]:
 
 
 def as_minutes(s):
@@ -704,23 +689,12 @@ def evaluate(input_seq, max_length=MAX_LENGTH):
         return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
 
 
-# We can evaluate random sentences from the training set and print out the input, target, and output to make some subjective quality judgements:
-
-# In[25]:
 
 
 def evaluate_randomly():
     
     [input_sentence, target_sentence] = random.choice(pairs)
     evaluate_and_show_attention(input_sentence, target_sentence)
-
-
-
-import io
-import torchvision
-from PIL import Image
-
-
 
 def evaluate_and_show_attention(input_sentence, target_sentence=None):
     output_words, attentions = evaluate(input_sentence)
@@ -787,8 +761,6 @@ def show_plot(points):
 
 #show_plot(plot_losses)
 
-
-
 def evaluate_randomly():
     [input_sentence, target_sentence] = random.choice(pairs)
     output_words, attentions = evaluate(input_sentence)
@@ -813,5 +785,6 @@ def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  los
                 'timestamp': str(datetime.datetime.now()),
                 'loss': loss,
                 }, path)
+
 save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, loss)
 

@@ -8,7 +8,7 @@ import config
 config.init()
 MAX_LENGTH = config.MAX_LENGTH
 
-def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
+def evaluate(input_seq, encoder, decoder, input_lang, output_lang, max_length=MAX_LENGTH):
     with torch.no_grad(): 
         input_seqs = [indexes_from_sentence(input_lang, input_seq)]
         input_lengths = [len(input_seq) for input_seq in input_seqs]
@@ -16,7 +16,6 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
         
         input_batches = input_batches.to(config.device)
             
-        print(input_lengths)
             
         # Set to not-training mode to disable dropout
         encoder.train(False)
@@ -49,12 +48,11 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
                 decoded_words.append('<EOS>')
                 break
             else:
-    #             print(ni)
                 decoded_words.append(output_lang.index2word[int(ni)])
                 
             # Next input is chosen word
             decoder_input = Variable(torch.LongTensor([ni]))
-            decoder_input = decoder_input.to(device)
+            decoder_input = decoder_input.to(config.device)
 
         # Set back to training mode
         encoder.train(True)
@@ -62,23 +60,10 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
         
         return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
 
-
-
-
-
-def evaluate_and_show_attention(input_sentence, target_sentence=None):
-    output_words, attentions = evaluate(input_sentence)
-    output_sentence = ' '.join(output_words)
-    print('>', input_sentence)
-    if target_sentence is not None:
-        print('=', target_sentence)
-    print('<', output_sentence)
-    
-
 def evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs):
     [input_sentence, target_sentence] = random.choice(pairs)
 
-    output_words, attentions = evaluate(input_sentence, encoder, decoder, input_lang)
+    output_words, attentions = evaluate(input_sentence, encoder, decoder, input_lang, output_lang)
     output_sentence = ' '.join(output_words)
     
     print('>', input_sentence)

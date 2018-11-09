@@ -26,16 +26,6 @@ MIN_COUNT = config.MIN_COUNT
 Functions
 """
 
-def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="eng_fra_model.pt"):
-    path = "../models/" + name
-    torch.save({
-                'encoder_model_state_dict': encoder.state_dict(),
-                'decoder_model_state_dict': decoder.state_dict(),
-                'encoder_optimizer_state_dict': encoder_optimizer.state_dict(),
-                'decoder_optimizer_state_dict': decoder_optimizer.state_dict(),
-                'timestamp': str(datetime.datetime.now()),
-                }, path)
-
 
 def show_plot(points):
     plt.figure()
@@ -75,9 +65,10 @@ clip = 50.0
 learning_rate = 0.0001
 decoder_learning_ratio = 5.0
 n_epochs = 16000
-n_epochs = 2
+n_epochs = 15
 epoch = 0
 plot_every = 20
+save_every = 20
 print_every = 10
 evaluate_every = 10
 
@@ -94,12 +85,12 @@ encoder.to(config.device)
 decoder.to(config.device)
 
 
-# Keep track of time elapsed and running averages start = time.time()
+# Keep track of time elapsed and running averages 
 
 
 
 train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimizer, decoder_optimizer, \
-        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, criterion, clip)
+        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip)
 
 
 #plot_losses = []

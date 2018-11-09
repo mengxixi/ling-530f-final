@@ -1,6 +1,11 @@
 import random 
+import time
+import math
+import datetime
+
 
 from process_data import *
+from eval import *
 
 
 """
@@ -8,6 +13,32 @@ Global variables
 """
 import config
 MAX_LENGTH = config.MAX_LENGTH
+
+
+def as_minutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+def time_since(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
+
+def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="eng_fra_model.pt"):
+    path = "../models/" + name
+    torch.save({
+                'encoder_model_state_dict': encoder.state_dict(),
+                'decoder_model_state_dict': decoder.state_dict(),
+                'encoder_optimizer_state_dict': encoder_optimizer.state_dict(),
+                'decoder_optimizer_state_dict': decoder_optimizer.state_dict(),
+                'timestamp': str(datetime.datetime.now()),
+                }, path)
+
+
+
 def train(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip, max_length=MAX_LENGTH):
     
     # Zero gradients of both optimizers
@@ -57,13 +88,10 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
 
 
 def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimizer, decoder_optimizer, \
-        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, criterion, clip):
-    ecs = []
-    dcs = []
-    eca = 0
-    dca = 0
+        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip):
+
+    start = time.time()
     print_loss_total = 0 # Reset every print_every
-    plot_loss_total = 0 # Reset every plot_every
 
     while epoch < n_epochs:
         epoch += 1
@@ -81,9 +109,6 @@ def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimiz
 
         # Keep track of loss
         print_loss_total += loss
-        plot_loss_total += loss
-        eca += ec
-        dca += dc
         
         if epoch % print_every == 0:
             print_loss_avg = print_loss_total / print_every
@@ -91,18 +116,14 @@ def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimiz
             print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
             print(print_summary)
             
+
+        if epoch % save_every == 0:
+            print("The model is saved.")
+            save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
+
         if epoch % evaluate_every == 0:
             evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
 
-        if epoch % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
-            
-            ecs.append(eca / plot_every)
-            dcs.append(dca / plot_every)
-            eca = 0
-            dca = 0
 
 def random_batch(batch_size, pairs, input_lang, output_lang):
     

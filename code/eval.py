@@ -7,7 +7,6 @@ Global variables
 import config
 config.init()
 MAX_LENGTH = config.MAX_LENGTH
-USE_CUDA = config.USE_CUDA
 
 def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
     with torch.no_grad(): 
@@ -15,8 +14,7 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
         input_lengths = [len(input_seq) for input_seq in input_seqs]
         input_batches = Variable(torch.LongTensor(input_seqs), volatile=True).transpose(0, 1)
         
-        if USE_CUDA:
-            input_batches = input_batches.cuda()
+        input_batches = input_batches.to(config.device)
             
         print(input_lengths)
             
@@ -31,8 +29,7 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
         decoder_input = Variable(torch.LongTensor([SOS_token]), volatile=True) # SOS
         decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
         
-        if USE_CUDA:
-            decoder_input = decoder_input.cuda()
+        decoder_input = decoder_input.to(config.device)
 
         # Store output words and attention states
         decoded_words = []
@@ -57,7 +54,7 @@ def evaluate(input_seq, encoder, decoder, input_lang, max_length=MAX_LENGTH):
                 
             # Next input is chosen word
             decoder_input = Variable(torch.LongTensor([ni]))
-            if USE_CUDA: decoder_input = decoder_input.cuda()
+            decoder_input = decoder_input.to(device)
 
         # Set back to training mode
         encoder.train(True)
@@ -113,10 +110,8 @@ def eval_random_batch(batch_size):
     input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
     target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
     
-    # move to CUDA
-    if USE_CUDA:
-        input_var = input_var.cuda()
-        target_var = target_var.cuda()
+    input_var = input_var.to(config.device)
+    target_var = target_var.to(config.device)
         
     return input_var, input_lengths, target_var, target_lengths
 

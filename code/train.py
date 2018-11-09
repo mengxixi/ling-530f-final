@@ -8,8 +8,6 @@ Global variables
 """
 import config
 MAX_LENGTH = config.MAX_LENGTH
-USE_CUDA = config.USE_CUDA
-
 def train(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip, max_length=MAX_LENGTH):
     
     # Zero gradients of both optimizers
@@ -27,10 +25,8 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
 
-    # Move new Variables to CUDA
-    if USE_CUDA:
-        decoder_input = decoder_input.cuda()
-        all_decoder_outputs = all_decoder_outputs.cuda()
+    decoder_input = decoder_input.to(config.device)
+    all_decoder_outputs = all_decoder_outputs.to(config.device)
 
     # Run through decoder one time step at a time
     for t in range(max_target_length):
@@ -45,7 +41,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths, USE_CUDA=USE_CUDA
+        target_lengths
     )
     loss.backward()
     
@@ -131,10 +127,8 @@ def random_batch(batch_size, pairs, input_lang, output_lang):
     input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
     target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
     
-    # move to CUDA
-    if USE_CUDA:
-        input_var = input_var.cuda()
-        target_var = target_var.cuda()
+    input_var = input_var.to(config.device)
+    target_var = target_var.to(config.device)
         
     return input_var, input_lengths, target_var, target_lengths
 

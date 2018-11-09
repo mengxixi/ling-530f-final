@@ -19,7 +19,6 @@ Global variables
 """
 import config
 config.init()
-USE_CUDA = config.USE_CUDA
 MIN_COUNT = config.MIN_COUNT  
 
 
@@ -91,10 +90,8 @@ encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
 criterion = nn.CrossEntropyLoss()
 
-# Move models to GPU
-if USE_CUDA:
-    encoder.cuda()
-    decoder.cuda()
+encoder.to(config.device)
+decoder.to(config.device)
 
 
 # Keep track of time elapsed and running averages start = time.time()

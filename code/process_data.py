@@ -75,7 +75,6 @@ def normalize_string(s):
     s = unicode_to_ascii(s.strip())
     return s
 
-
 def read_langs(fname, reverse=False):
     print("Reading lines...")
 
@@ -88,53 +87,55 @@ def read_langs(fname, reverse=False):
     # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang()
-        output_lang = Lang()
-    else:
-        input_lang = Lang()
-        output_lang = Lang()
 
-    return input_lang, output_lang, pairs
+    lang = Lang()
+
+    return lang, pairs
 
 def good_pair(pair):
     return True
 
 def filter_pairs(pairs):
+    return pairs
+
+    """
     filtered_pairs = []
     for pair in pairs:
         if good_pair(pair):
                 filtered_pairs.append(pair)
     return filtered_pairs
+    """
 
 # remove out-of-vocab pairs
 # if one of the pair is out-of-vocab, then remove the pair
-def remove_oov_pairs(pairs, input_lang, output_lang):
+def handle_oov_words(pairs, lang):
     keep_pairs = []
     for pair in pairs:
         input_sentence = pair[0]
         output_sentence = pair[1]
-        keep_input = True
-        keep_output = True
         
-        for word in input_sentence.split(' '):
-            if word not in input_lang.word2index:
-                keep_input = False
+        input_list = input_sentence.split(' ')
+        output_list = output_sentence.split(' ')
+
+        for i, word in enumerate(input_list):
+            if word not in lang.word2index:
+                input_list[i] = "unk";
                 break
 
-        for word in output_sentence.split(' '):
-            if word not in output_lang.word2index:
-                keep_output = False
+        for i, word in enumerate(output_list):
+            if word not in lang.word2index:
+                output_list[i] = "unk";
                 break
 
-        # Remove if pair doesn't match input and output conditions
-        if keep_input and keep_output:
-            keep_pairs.append(pair)
+        pair[0] = " ".join(input_list)
+        pair[1] = " ".join(output_list)
+        keep_pairs.append(pair)
 
     return keep_pairs
 
 
 def prepare_data(fname, reverse=False):
-    input_lang, output_lang, pairs = read_langs(fname, reverse)
+    lang, pairs = read_langs(fname, reverse)
     print("Read %d sentence pairs" % len(pairs))
     
     pairs = filter_pairs(pairs)
@@ -142,11 +143,11 @@ def prepare_data(fname, reverse=False):
     
     print("Indexing words...")
     for pair in pairs:
-        input_lang.index_words(pair[0])
-        output_lang.index_words(pair[1])
+        lang.index_words(pair[0])
+        lang.index_words(pair[1])
     
-    print('Indexed %d words in input language, %d words in output' % (input_lang.n_words, output_lang.n_words))
-    return input_lang, output_lang, pairs
+    print('Indexed %d words from data' % (lang.n_words))
+    return lang, pairs
 
 
 # Return a list of indexes, one for each word in the sentence, plus EOS

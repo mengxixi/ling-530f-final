@@ -41,19 +41,13 @@ def show_plot(points):
 Driver START
 """
 fname = "../data/eng_fra/eng-fra.txt"
-fname = "../data/small_news_summary/headline_text.txt"
 fname = "../data/gigaword/small.txt"
-input_lang, output_lang, pairs = prepare_data(fname, True)
-output_lang = input_lang
+fname = "../data/small_news_summary/headline_text.txt"
+lang, pairs = prepare_data(fname, True)
+lang.trim(MIN_COUNT)
 
 
-
-
-
-
-input_lang.trim(MIN_COUNT)
-output_lang.trim(MIN_COUNT)
-keep_pairs = remove_oov_pairs(pairs, input_lang, output_lang)
+keep_pairs = handle_oov_words(pairs, lang)
 print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
 pairs = keep_pairs
 
@@ -64,7 +58,7 @@ HYPERPARAMETER
 attn_model = 'dot'
 hidden_size = 256
 n_layers = 2
-dropout = 0.1
+dropout = 0.0
 
 batch_size = 20
 
@@ -73,24 +67,21 @@ clip = 50.0
 learning_rate = 0.0001
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
+n_epochs = 10
 epoch = 0
 plot_every = 20
 save_every = 200
 print_every = 1
-evaluate_every = 10
+evaluate_every = 3
 weight_decay=0
 
 # Initialize models
-encoder = EncoderRNN(input_lang.n_words, hidden_size, n_layers, dropout=dropout)
-decoder = DecoderRNN(attn_model, hidden_size, output_lang.n_words, n_layers, dropout=dropout)
+encoder = EncoderRNN(lang.n_words, hidden_size, n_layers, dropout=dropout)
+decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, n_layers, dropout=dropout)
 
 # Initialize optimizers and criterion
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
-
-
-
-
 
 criterion = nn.CrossEntropyLoss()
 
@@ -98,26 +89,15 @@ encoder.to(config.device)
 decoder.to(config.device)
 
 
-# Keep track of time elapsed and running averages 
-
-
-
-train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimizer, decoder_optimizer, \
-        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip)
+train_iter(pairs, encoder, decoder, lang, encoder_optimizer, decoder_optimizer, \
+        epoch, n_epochs, batch_size, print_every, evaluate_every, \
+        plot_every, save_every, criterion, clip)
 
 
 #plot_losses = []
 #show_plot(plot_losses)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
-evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+
+evaluate_randomly(encoder, decoder, lang, pairs)
 
 save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
 

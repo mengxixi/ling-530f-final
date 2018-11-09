@@ -89,7 +89,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     return loss.item(), ec, dc
 
 
-def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimizer, decoder_optimizer, \
+def train_iter(pairs, encoder, decoder, lang, encoder_optimizer, decoder_optimizer, \
         epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip):
 
     start = time.time()
@@ -100,7 +100,7 @@ def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimiz
         
         # Get training data for this cycle
         input_batches, input_lengths, target_batches, target_lengths = \
-                random_batch(batch_size, pairs, input_lang, output_lang)
+                random_batch(batch_size, pairs, lang)
 
         # Run the train function
         loss, ec, dc = train(
@@ -124,10 +124,10 @@ def train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimiz
             save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
 
         if epoch % evaluate_every == 0:
-            evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+            evaluate_randomly(encoder, decoder, lang, pairs)
 
 
-def random_batch(batch_size, pairs, input_lang, output_lang):
+def random_batch(batch_size, pairs, lang):
     
     input_seqs = []
     target_seqs = []
@@ -135,8 +135,8 @@ def random_batch(batch_size, pairs, input_lang, output_lang):
     # Choose random pairs
     for i in range(batch_size):
         pair = random.choice(pairs)
-        input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
-        target_seqs.append(indexes_from_sentence(output_lang, pair[1]))
+        input_seqs.append(indexes_from_sentence(lang, pair[0]))
+        target_seqs.append(indexes_from_sentence(lang, pair[1]))
 
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
     input_seqs, target_seqs = zip(*seq_pairs)

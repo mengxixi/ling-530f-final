@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+/code/__pycache__# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -162,3 +162,4 @@ models/glove*.txt
 models/crawl-300d-2M-subword.bin
 models/*.ckpt
 code/save/eng_fra_model.pt
+code/__pycache__

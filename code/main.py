@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 import time
 import datetime
 
-from preprocess import *
+from process_data import *
 from eval import *
 from model import *
 from train import *
@@ -27,7 +27,7 @@ Functions
 """
 
 def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="eng_fra_model.pt"):
-    path = "./save/" + name
+    path = "../models/" + name
     torch.save({
                 'encoder_model_state_dict': encoder.state_dict(),
                 'decoder_model_state_dict': decoder.state_dict(),
@@ -95,7 +95,6 @@ decoder.to(config.device)
 
 
 # Keep track of time elapsed and running averages start = time.time()
-plot_losses = []
 
 
 
@@ -103,7 +102,15 @@ train_iter(pairs, encoder, decoder, input_lang, output_lang, encoder_optimizer, 
         epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, criterion, clip)
 
 
+#plot_losses = []
 #show_plot(plot_losses)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
+evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
 evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
 evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)
 evaluate_randomly(encoder, decoder, input_lang, output_lang, pairs)

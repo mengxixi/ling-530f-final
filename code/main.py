@@ -40,11 +40,17 @@ def show_plot(points):
 """
 Driver START
 """
+
+print("Loading glove model")
+glvmodel = GloVe('../models/glove.twitter.27B.200d.txt', dim=200)
+print("Done loading glove model")
+
 fname = "../data/eng_fra/eng-fra.txt"
 fname = "../data/gigaword/small.txt"
 fname = "../data/small_news_summary/headline_text.txt"
-lang, pairs = prepare_data(fname, True)
+lang, pairs = prepare_data(fname, glvmodel, True)
 lang.trim(MIN_COUNT)
+
 
 
 keep_pairs = handle_oov_words(pairs, lang)
@@ -56,7 +62,7 @@ pairs = keep_pairs
 HYPERPARAMETER
 """
 attn_model = 'dot'
-hidden_size = 256
+hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
@@ -76,8 +82,8 @@ evaluate_every = 3
 weight_decay=0
 
 # Initialize models
-encoder = EncoderRNN(lang.n_words, hidden_size, n_layers, dropout=dropout)
-decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, n_layers, dropout=dropout)
+encoder = EncoderRNN(lang.n_words, hidden_size, lang.pretrained_embeddings, n_layers, dropout=dropout)
+decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, lang.pretrained_embeddings, n_layers, dropout=dropout)
 
 # Initialize optimizers and criterion
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)

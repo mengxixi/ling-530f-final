@@ -8,6 +8,9 @@ import torch.nn.functional as F
 from torch import optim
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
+
+import numpy as np
+
 """
 Global variables
 """
@@ -23,7 +26,7 @@ class EncoderRNN(nn.Module):
     n_layers: number of hidden layers in GRU
     
     """ 
-    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
+    def __init__(self, input_size, hidden_size, pretrained_embeddings, n_layers=1, dropout=0.1):
         
         super(EncoderRNN, self).__init__()
         
@@ -32,7 +35,9 @@ class EncoderRNN(nn.Module):
         self.n_layers = n_layers
         self.dropout = dropout
         
-        self.embedding = nn.Embedding(input_size, hidden_size)
+        glove_embeddings = torch.tensor(pretrained_embeddings)
+        self.embedding = nn.Embedding(input_size, hidden_size).\
+                from_pretrained(glove_embeddings, freeze=False)
         
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         
@@ -97,7 +102,7 @@ class Attn(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1):
+    def __init__(self, attn_model, hidden_size, output_size, pretrained_embeddings, n_layers=1, dropout=0.1):
         super(DecoderRNN, self).__init__()
 
         # Keep for reference
@@ -108,7 +113,11 @@ class DecoderRNN(nn.Module):
         self.dropout = dropout
 
         # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
+
+        glove_embeddings = torch.tensor(pretrained_embeddings)
+        self.embedding = nn.Embedding(output_size, hidden_size).\
+                from_pretrained(glove_embeddings, freeze=False)
+
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
@@ -147,6 +156,32 @@ class DecoderRNN(nn.Module):
 
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
+
+
+
+class GloVe():
+    def __init__(self, path, dim):
+        self.dim = dim
+        self.word_embedding_dict = {}
+        self.n_words = 0
+        self.n_words_pretrained = 0
+        with open(path) as f:
+            for line in f:
+                values = line.split()
+                embedding = values[-dim:]
+                word = ''.join(values[:-dim])
+                self.word_embedding_dict[word] = np.asarray(embedding, dtype=np.float32)
+    
+    def get_word_vector(self, word):
+        self.n_words += 1
+        if word not in self.word_embedding_dict.keys():
+            embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
+            self.word_embedding_dict[word] = embedding
+            return embedding
+        else:
+            self.n_words_pretrained += 1
+            return self.word_embedding_dict[word]
+
 
 
 

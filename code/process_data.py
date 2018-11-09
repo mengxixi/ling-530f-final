@@ -17,12 +17,18 @@ PAD_token = config.PAD_token
 
 
 class Lang:
-    def __init__(self):
+    def __init__(self, glove):
         self.trimmed = False
         self.word2index = {}
         self.word2count = {}
         self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
         self.n_words = 3 # Count default tokens
+        self.pretrained_embeddings = []
+        self.pretrained_embeddings.append(glove.get_word_vector("PAD"))
+        self.pretrained_embeddings.append(glove.get_word_vector("SOS"))
+        self.pretrained_embeddings.append(glove.get_word_vector("EOS"))
+        self.glove = glove
+
 
     def index_words(self, sentence):
         for word in sentence.split(' '):
@@ -34,6 +40,7 @@ class Lang:
             self.word2count[word] = 1
             self.index2word[self.n_words] = word
             self.n_words += 1
+            self.pretrained_embeddings.append(self.glove.get_word_vector(word))
         else:
             self.word2count[word] += 1
 
@@ -75,7 +82,7 @@ def normalize_string(s):
     s = unicode_to_ascii(s.strip())
     return s
 
-def read_langs(fname, reverse=False):
+def read_langs(fname, glove, reverse=False):
     print("Reading lines...")
 
     # Read the file and split into lines
@@ -88,7 +95,7 @@ def read_langs(fname, reverse=False):
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
 
-    lang = Lang()
+    lang = Lang(glove)
 
     return lang, pairs
 
@@ -133,9 +140,8 @@ def handle_oov_words(pairs, lang):
 
     return keep_pairs
 
-
-def prepare_data(fname, reverse=False):
-    lang, pairs = read_langs(fname, reverse)
+def prepare_data(fname, glove, reverse=False):
+    lang, pairs = read_langs(fname, glove, reverse)
     print("Read %d sentence pairs" % len(pairs))
     
     pairs = filter_pairs(pairs)
@@ -146,7 +152,9 @@ def prepare_data(fname, reverse=False):
         lang.index_words(pair[0])
         lang.index_words(pair[1])
     
+    
     print('Indexed %d words from data' % (lang.n_words))
+    print('Indexed %d/%d (%.2f) words are using embedded weights' % (glove.n_words_pretrained, glove.n_words, 1.0*glove.n_words_pretrained/glove.n_words))
     return lang, pairs
 
 

@@ -4,6 +4,9 @@ import torch
 from torch.nn import functional
 from torch.autograd import Variable
 
+import nltk
+from nltk.tokenize import TweetTokenizer
+
 """
 Global variables
 """
@@ -19,19 +22,22 @@ PAD_token = config.PAD_token
 class Lang:
     def __init__(self, glove):
         self.trimmed = False
-        self.word2index = {}
-        self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
-        self.n_words = 3 # Count default tokens
+        self.word2index = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
+        self.word2count = {"PAD": 1, "SOS": 1, "EOS": 1, "unk": 1}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
+        self.n_words = len(self.index2word) # Count default tokens
         self.pretrained_embeddings = []
         self.pretrained_embeddings.append(glove.get_word_vector("PAD"))
         self.pretrained_embeddings.append(glove.get_word_vector("SOS"))
         self.pretrained_embeddings.append(glove.get_word_vector("EOS"))
+        self.pretrained_embeddings.append(glove.get_word_vector("unk"))
         self.glove = glove
+        self.tokenizer = TweetTokenizer(preserve_case=False, strip_handles=True, reduce_len=False)
 
 
     def index_words(self, sentence):
-        for word in sentence.split(' '):
+        tokens = self.tokenizer.tokenize(sentence)
+        for word in tokens:
             self.index_word(word)
 
     def index_word(self, word):
@@ -160,7 +166,8 @@ def prepare_data(fname, glove, reverse=False):
 
 # Return a list of indexes, one for each word in the sentence, plus EOS
 def indexes_from_sentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')] + [EOS_token]
+    tokens = lang.tokenizer.tokenize(sentence)
+    return [lang.word2index[word] for word in tokens] + [EOS_token]
 
 
 # Pad a sentence with the PAD symbol

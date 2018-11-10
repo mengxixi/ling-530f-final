@@ -39,7 +39,7 @@ def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  nam
 
 
 
-def train(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip, max_length=MAX_LENGTH):
+def train(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip):
     
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()

@@ -53,9 +53,9 @@ lang.trim(MIN_COUNT)
 
 
 
-keep_pairs = handle_oov_words(pairs, lang)
-print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
-pairs = keep_pairs
+#keep_pairs = handle_oov_words(pairs, lang)
+#print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
+#pairs = keep_pairs
 
 
 """
@@ -66,14 +66,14 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 20
+batch_size = 40
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 0.0001
+learning_rate = 0.1
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
-n_epochs = 10
+#n_epochs = 10
 epoch = 0
 plot_every = 20
 save_every = 200
@@ -86,8 +86,8 @@ encoder = EncoderRNN(lang.n_words, hidden_size, lang.pretrained_embeddings, n_la
 decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, lang.pretrained_embeddings, n_layers, dropout=dropout)
 
 # Initialize optimizers and criterion
-encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
+encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
 criterion = nn.CrossEntropyLoss()
 

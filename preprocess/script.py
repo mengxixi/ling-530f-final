@@ -66,7 +66,7 @@ def preprocess(input_path, output_path):
                             headline = headline[a + 1:b]
                 headline_token = word_tokenize(headline)
                 #remove punctuations, replace number with #
-                headline_token = [t.strip(string.punctuation) for t in headline_token]
+                headline_token = [t.strip(string.punctuation).lower() for t in headline_token]
                 headline_token = [re.sub(r"\d+(\W\d+)*", "#", t) for t in headline_token if t != ""]
                 #ignore if headline is too short
                 if len(headline_token) < 3:
@@ -75,7 +75,7 @@ def preprocess(input_path, output_path):
                 #process the first paragraph
                 par1_token = word_tokenize(par1)
                 #remove punctuations, replace number with #
-                par1_token = [t.strip(string.punctuation) for t in par1_token]
+                par1_token = [t.strip(string.punctuation).lower() for t in par1_token]
                 par1_token = [re.sub(r"\d+(\W\d+)*", "#", t) for t in par1_token if t != ""]
                 
                 headline = " ".join([t for t in headline_token])

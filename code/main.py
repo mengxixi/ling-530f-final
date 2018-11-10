@@ -79,13 +79,13 @@ batch_size = 20
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 0.0001
+learning_rate = 0.00001
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
 #n_epochs = 10
 epoch = 0
 plot_every = 20
-save_every = 200
+save_every = 100
 print_every = 1
 evaluate_every = 3
 weight_decay=0
@@ -98,8 +98,11 @@ decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, lang.pretrained_embe
 #encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 #decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
+restore_training(encoder, decoder)
+
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
+
 criterion = nn.CrossEntropyLoss()
 
 encoder.to(config.device)

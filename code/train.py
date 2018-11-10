@@ -32,11 +32,11 @@ def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  nam
     torch.save({
                 'encoder_model_state_dict': encoder.state_dict(),
                 'decoder_model_state_dict': decoder.state_dict(),
-                'encoder_optimizer_state_dict': encoder_optimizer.state_dict(),
-                'decoder_optimizer_state_dict': decoder_optimizer.state_dict(),
                 'timestamp': str(datetime.datetime.now()),
                 }, path)
 
+                #'encoder_optimizer_state_dict': encoder_optimizer.state_dict(),
+                #'decoder_optimizer_state_dict': decoder_optimizer.state_dict(),
 
 
 def train(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip):
@@ -87,6 +87,17 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     
     #return loss.data[0], ec, dc
     return loss.item(), ec, dc
+
+def restore_training(encoder, decoder):
+    print("Restoring training environment")
+    checkpt = torch.load('../models/sum_model.pt')
+    encoder.load_state_dict(checkpt["encoder_model_state_dict"])
+    decoder.load_state_dict(checkpt["decoder_model_state_dict"])
+    #encoder_optimizer.load_state_dict(checkpt["encoder_optimizer_state_dict"])
+    #decoder_optimizer.load_state_dict(checkpt["decoder_optimizer_state_dict"])
+    print("Restored training environment")
+
+
 
 
 def train_iter(pairs, encoder, decoder, lang, encoder_optimizer, decoder_optimizer, \

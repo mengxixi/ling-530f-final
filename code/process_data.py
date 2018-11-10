@@ -6,6 +6,7 @@ from torch.autograd import Variable
 
 import nltk
 from nltk.tokenize import TweetTokenizer
+import pickle
 
 """
 Global variables
@@ -17,6 +18,7 @@ MAX_LENGTH = config.MAX_LENGTH
 EOS_token = config.EOS_token
 SOS_token = config.SOS_token
 PAD_token = config.PAD_token
+
 
 
 class Lang:
@@ -31,7 +33,7 @@ class Lang:
         self.pretrained_embeddings.append(glove.get_word_vector("SOS"))
         self.pretrained_embeddings.append(glove.get_word_vector("EOS"))
         self.pretrained_embeddings.append(glove.get_word_vector("unk"))
-        self.glove = glove
+        self.glove = glove 
         self.tokenizer = TweetTokenizer(preserve_case=False, strip_handles=True, reduce_len=False)
 
 
@@ -187,6 +189,26 @@ def sequence_mask(sequence_length, max_len=None):
     seq_length_expand = (sequence_length.unsqueeze(1)
                          .expand_as(seq_range_expand))
     return seq_range_expand < seq_length_expand
+
+def archive_lang(lang, pairs):
+    print("Saving lang")
+    fileObject = open("../models/lang.pickle",'wb')
+    obj = {"lang": lang, "pairs": pairs}
+
+    pickle.dump(obj,fileObject)
+    fileObject.close()
+    print("Done saving lang")
+
+def restore_lang():
+    print("Reading lang")
+    fileObject = open("../models/lang.pickle",'rb')
+    obj = pickle.load(fileObject)
+    lang = obj["lang"]
+    pairs = obj["pairs"]
+    print("Done reading lang")
+    return lang, pairs
+
+
 
 
 def masked_cross_entropy(logits, target, length):

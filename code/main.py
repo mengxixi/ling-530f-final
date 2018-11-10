@@ -20,6 +20,7 @@ Global variables
 import config
 config.init()
 MIN_COUNT = config.MIN_COUNT  
+READ_LANG_FROM_PICKLE = True
 
 
 """
@@ -41,15 +42,23 @@ def show_plot(points):
 Driver START
 """
 
-print("Loading glove model")
-glvmodel = GloVe('../models/glove.twitter.27B.200d.txt', dim=200)
-print("Done loading glove model")
+lang = None
+pairs = None
 
-fname = "../data/eng_fra/eng-fra.txt"
-fname = "../data/gigaword/small.txt"
-fname = "../data/small_news_summary/headline_text.txt"
-lang, pairs = prepare_data(fname, glvmodel, True)
-lang.trim(MIN_COUNT)
+if READ_LANG_FROM_PICKLE:
+    lang, pairs = restore_lang()
+else: 
+    print("Loading glove model")
+    glvmodel = GloVe('../models/glove.twitter.27B.200d.txt', dim=200)
+    print("Done loading glove model")
+
+    fname = "../data/eng_fra/eng-fra.txt"
+    fname = "../data/gigaword/small.txt"
+    fname = "../data/small_news_summary/headline_text.txt"
+    lang, pairs = prepare_data(fname, glvmodel, True)
+    lang.trim(MIN_COUNT)
+    # archive_lang(lang, pairs)
+
 
 
 
@@ -70,7 +79,7 @@ batch_size = 20
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 0.1
+learning_rate = 0.0001
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
 #n_epochs = 10

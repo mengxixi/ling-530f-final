@@ -66,7 +66,7 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 40
+batch_size = 20
 
 # Configure training/optimization
 clip = 50.0
@@ -86,9 +86,11 @@ encoder = EncoderRNN(lang.n_words, hidden_size, lang.pretrained_embeddings, n_la
 decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, lang.pretrained_embeddings, n_layers, dropout=dropout)
 
 # Initialize optimizers and criterion
-encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
+#encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+#decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
+encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 criterion = nn.CrossEntropyLoss()
 
 encoder.to(config.device)

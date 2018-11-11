@@ -40,13 +40,15 @@ def worker(in_queue, out_queue):
 
 def preprocess(tar_path, output_path):
     '''
-    source_tars  -- list of paths to the tar files
+    tar_path  -- tar file to process
     output_path -- directory of the output file
                    each line of the output file has the format {'Headline': string, 'Text': string}
     '''
 
     fname = "%s.txt" % tar_path.split('/')[-1].split('.')[0]
     out_fname = os.path.join(output_path, fname)
+
+    mem = {}
 
     with open(out_fname, 'w') as f:
         for (comm, filename) in CommunicationReader(tar_path):
@@ -57,6 +59,10 @@ def preprocess(tar_path, output_path):
             par1_end = text.find("</P>",par1_start)
             headline = text[headline_start + len('<HEADLINE>'):headline_end].strip()
             par1 = text[par1_start + len("<P>"):par1_end].strip()
+            if headline in mem.keys():
+                continue
+            else:
+                mem[headline] = par1
             
             # print(headline)
             # print(par1)
@@ -80,7 +86,7 @@ def preprocess(tar_path, output_path):
             headline_token = word_tokenize(headline)
             #remove punctuations, replace number with #
             headline_token = [t.strip(string.punctuation).lower() for t in headline_token]
-            headline_token = [re.sub(r"\d+(\W\d+)*", "#", t) for t in headline_token if t != ""]
+            # headline_token = [re.sub(r"\d+(\W\d+)*", "#", t) for t in headline_token if t != ""]
             #ignore if headline is too short
             if len(headline_token) < 3:
                 continue
@@ -89,13 +95,14 @@ def preprocess(tar_path, output_path):
             par1_token = word_tokenize(par1)
             #remove punctuations, replace number with #
             par1_token = [t.strip(string.punctuation).lower() for t in par1_token]
-            par1_token = [re.sub(r"\d+(\W\d+)*", "#", t) for t in par1_token if t != ""]
+            # par1_token = [re.sub(r"\d+(\W\d+)*", "#", t) for t in par1_token if t != ""]
             
             headline = " ".join([t for t in headline_token])
             par1 = " ".join([t for t in par1_token])
             obj = {'Headline': headline, "Text": par1}
             json_str = json.dumps(obj)
             f.write(json_str + '\n')
+    print("completed file %s" % fname)
     return fname
 
 

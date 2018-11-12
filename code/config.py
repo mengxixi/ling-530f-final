@@ -14,7 +14,7 @@ def init():
     EOS_token = 2
     MIN_LENGTH = 3
     MAX_LENGTH = 100
-    MIN_COUNT = 1
+    MIN_COUNT = 2
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 

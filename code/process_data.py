@@ -68,10 +68,10 @@ class Lang:
         ))
 
         # Reinitialize dictionaries
-        self.word2index = {}
-        self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
-        self.n_words = 3 # Count default tokens
+        self.word2index = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
+        self.word2count = {"PAD": 1, "SOS": 1, "EOS": 1, "unk": 1}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
+        self.n_words = len(self.index2word) 
 
         for word in keep_words:
             self.index_word(word)
@@ -169,7 +169,14 @@ def prepare_data(fname, glove, reverse=False):
 # Return a list of indexes, one for each word in the sentence, plus EOS
 def indexes_from_sentence(lang, sentence):
     tokens = lang.tokenizer.tokenize(sentence)
-    return [lang.word2index[word] for word in tokens] + [EOS_token]
+    L = []
+    for word in tokens:
+        try: 
+            L.append(lang.word2index[word])
+        except:
+            L.append(lang.word2index["unk"])
+
+    return L + [EOS_token]
 
 
 # Pad a sentence with the PAD symbol

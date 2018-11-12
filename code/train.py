@@ -101,7 +101,7 @@ def restore_training(encoder, decoder):
 
 
 def train_iter(pairs, encoder, decoder, lang, encoder_optimizer, decoder_optimizer, \
-        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip):
+        epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip, eval_pairs):
 
     start = time.time()
     print_loss_total = 0 # Reset every print_every
@@ -135,7 +135,10 @@ def train_iter(pairs, encoder, decoder, lang, encoder_optimizer, decoder_optimiz
             save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
 
         if epoch % evaluate_every == 0:
+            print("From training set:")
             evaluate_randomly(encoder, decoder, lang, pairs)
+            print("From eval set:")
+            evaluate_randomly(encoder, decoder, lang, eval_pairs)
 
 
 def random_batch(batch_size, pairs, lang):

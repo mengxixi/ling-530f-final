@@ -20,7 +20,7 @@ Global variables
 import config
 config.init()
 MIN_COUNT = config.MIN_COUNT  
-READ_LANG_FROM_PICKLE = True
+READ_LANG_FROM_PICKLE = False
 
 
 """
@@ -55,9 +55,14 @@ else:
     fname = "../data/eng_fra/eng-fra.txt"
     fname = "../data/gigaword/small.txt"
     fname = "../data/small_news_summary/headline_text.txt"
+    fname = "../data/gigaword_processed/train.txt"
+    fname = "../data/80k_gigaword/train.txt"
     lang, pairs = prepare_data(fname, glvmodel, True)
-    lang.trim(MIN_COUNT)
-    # archive_lang(lang, pairs)
+    #lang.trim(MIN_COUNT)
+
+    eval_fname = "../data/80k_gigaword/eval.txt"
+    _, eval_pairs = prepare_data(eval_fname, glvmodel, True)
+    #archive_lang(lang, pairs)
 
 
 
@@ -75,11 +80,11 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 20
+batch_size = 50
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 0.00001
+learning_rate = 0.001
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
 #n_epochs = 10
@@ -98,7 +103,7 @@ decoder = DecoderRNN(attn_model, hidden_size, lang.n_words, lang.pretrained_embe
 #encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 #decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
-restore_training(encoder, decoder)
+#restore_training(encoder, decoder)
 
 encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
@@ -111,13 +116,14 @@ decoder.to(config.device)
 
 train_iter(pairs, encoder, decoder, lang, encoder_optimizer, decoder_optimizer, \
         epoch, n_epochs, batch_size, print_every, evaluate_every, \
-        plot_every, save_every, criterion, clip)
+        plot_every, save_every, criterion, clip, eval_pairs)
 
 
 #plot_losses = []
 #show_plot(plot_losses)
 
 evaluate_randomly(encoder, decoder, lang, pairs)
+evaluate_randomly(encoder, decoder, lang, eval_pairs)
 
 save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
 

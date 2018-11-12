@@ -32,7 +32,7 @@ def worker(in_queue, out_queue):
             res = preprocess(tar_file, OUTPUT_PATH)
             out_queue.put(res)
 
-        except in_queue.Empty:
+        except Queue.Empty:
             continue
 
         in_queue.task_done()
@@ -111,6 +111,7 @@ SOURCES = ["cna*", "xin*"]
 tars = []
 for s in SOURCES:
     tars.extend(glob.glob(os.path.join(GIGAWORD_PATH, s)))
+
 
 OUTPUT_PATH = os.path.join("..", "data", "tmp", 'gigaword')
 if not os.path.exists(OUTPUT_PATH):

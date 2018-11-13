@@ -574,8 +574,8 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
         running_loss += loss
     
 
-        if epoch % 10 == 0:
-            avg_running_loss = running_loss / 10
+        if epoch % 5 == 0:
+            avg_running_loss = running_loss / 5
             running_loss = 0
             logging.info("Iteration: %d running loss: %f", epoch, avg_running_loss)
 
@@ -583,7 +583,7 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
             logging.info("Iteration: %d model saved", epoch)
             save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, name=CHECKPOINT_FNAME)
 
-        if epoch % 100 == 0:
+        if epoch % 50 == 0:
             logging.info("Iteration: %d, evaluating", epoch)
             evaluate_randomly(encoder, decoder, pairs)
 

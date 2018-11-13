@@ -475,9 +475,9 @@ def evaluate_randomly(encoder, decoder, pairs):
     article = random.choice(pairs)
     headline = article[0]
     text = article[1]
-    print('>', text)
+    print('>', ' '.join(text))
     if headline is not None:
-        print('=', headline)
+        print('=', ' '.join(headline))
 
     output_words, attentions = evaluate(headline, encoder, decoder)
     output_words = output_words
@@ -590,7 +590,6 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
 
 
 def random_batch(batch_size, pairs):
-    
     input_seqs = []
     target_seqs = []
 
@@ -624,11 +623,11 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 4
+batch_size = 8
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 1e-4
+learning_rate = 1e-5
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
 weight_decay = 0

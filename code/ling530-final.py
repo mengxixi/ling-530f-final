@@ -29,6 +29,7 @@ torch.cuda.manual_seed(4)
 DATA_DIR = os.path.join("..", "data", "gigawordunsplit")
 TRAIN_DIR = os.path.join("..", "data", "gigaword","train")
 DEV_DIR = os.path.join("..", "data", "gigaword","dev")
+CHECKPOINT_FNAME = "gigaword.ckpt"
 
 for d in [DATA_DIR, TRAIN_DIR, DEV_DIR]:
     if not os.path.exists(d):
@@ -56,6 +57,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # In[ ]:
 
+
 logging.info("Splitting data into train and dev...")
 
 fnames = os.listdir(DATA_DIR)
@@ -69,7 +71,8 @@ for i, fname in enumerate(fnames):
         dst = os.path.join(TRAIN_DIR, fname)
     else:
         dst = os.path.join(DEV_DIR, fname)
-    shutil.copyfile(src, dst)        
+    shutil.copyfile(src, dst)  
+        
 
 
 # Count the frequency of each word appears in the dataset
@@ -82,7 +85,6 @@ def update_freq_dict(freq_dict, tokens):
         if t not in freq_dict:
             freq_dict[t] = 0
         freq_dict[t] += 1
-
 
 def build_freq_dict(data_dir):
     freq_dict = dict()
@@ -98,14 +100,14 @@ def build_freq_dict(data_dir):
     return freq_dict
 
 logging.info("Building frequency dict on TRAIN data...")
-
 freq_dict = build_freq_dict(TRAIN_DIR)
-
 logging.info("Number of unique tokens: %d", len(freq_dict))
+
 
 # Convert words with frequency less than or equal to 2 to unk.  Ignore the article if it's headline has known word less than 3.
 
 # In[ ]:
+
 
 WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
 INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
@@ -131,7 +133,7 @@ def update_word_index(word2index, index2word, tokens):
 
 
 def read_data(data_dir):
-    data_ignored = 0
+    ignore_count = 0
     data = []
     for fname in os.listdir(data_dir):
         fpath = os.path.join(data_dir, fname)
@@ -143,27 +145,28 @@ def read_data(data_dir):
                 if data_dir == TRAIN_DIR:
                     headline, known_count = remove_low_freq_words(freq_dict, headline)
                     if known_count < MIN_KNOWN_COUNT:
-                        data_ignored += 1
+                        ignore_count += 1
                         continue
-                    
+
                     # TODO: ignore if too short or too long?
                     text, _ = remove_low_freq_words(freq_dict, text) 
-                    
+
                     update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
                     update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
                 data.append((headline, text))
-    return data, data_ignored
-
-assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
-VOCAB_SIZE = len(WORD_2_INDEX)
+    return data, ignore_count
+    
 
 logging.info("Load TRAIN data and remove low frequency tokens...")
 train_data, ignore_count = read_data(TRAIN_DIR)
+assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
+VOCAB_SIZE = len(WORD_2_INDEX)
 logging.info("Removed %d articles due to not enough known words in headline", ignore_count)
 logging.info("Number of unique tokens after removing low frequency ones: %d", VOCAB_SIZE)
 
 logging.info("Load DEV data and remove low frequency tokens...")
 dev_data, _ = read_data(DEV_DIR)
+
 
 # 
 # ## GloVe word embeddings
@@ -191,9 +194,8 @@ class GloVe():
             return embedding
         else:
             return self.word_embedding_dict[word]
+glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.200d.txt'), dim=200)
 
-logging.info("Loading GloVe model with dimension %d...", EMBEDDING_DIM)
-glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.%dd.txt' % EMBEDDING_DIM), dim=EMBEDDING_DIM)
 
 # ## Gather word embeddings for tokens in the training data
 # - Since the RNN needs machine-readable inputs (hence numbers instead of strings), we need to convert all labels to indices, and all words to embeddings with mappings to indices.
@@ -201,10 +203,11 @@ glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.%dd.txt' % EMBE
 
 # In[ ]:
 
-logging.info("Loading pretrained embeddings for our vocabulary...")
+
 pretrained_embeddings = []
 for i in range(VOCAB_SIZE):
     pretrained_embeddings.append(glvmodel.get_word_vector(INDEX_2_WORD[i]))
+
 
 # In[ ]:
 
@@ -214,7 +217,6 @@ def indexes_from_sentence(tokens):
     default_idx = WORD_2_INDEX[UNKNOWN_TOKEN]
     idxs = [WORD_2_INDEX.get(word, default_idx) for word in tokens]
     return [SOS_token] + idxs + [EOS_token]
-
 
 # Pad a sentence with the PAD symbol
 def pad_seq(seq, max_length):
@@ -471,8 +473,8 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
 
 def evaluate_randomly(encoder, decoder, pairs):
     article = random.choice(pairs)
-    headline = article['Headline']
-    text = article['Text']
+    headline = article[0]
+    text = article[1]
     print('>', text)
     if headline is not None:
         print('=', headline)
@@ -484,51 +486,11 @@ def evaluate_randomly(encoder, decoder, pairs):
     print('<', output_sentence)
     
 
-def eval_random_batch(batch_size):
-    
-    input_seqs = []
-    target_seqs = []
-
-    # Choose random pairs
-    for i in range(batch_size):
-        pair = random.choice(pairs)
-        input_seqs.append(indexes_from_sentence( pair['Text']))
-        target_seqs.append(indexes_from_sentence(pair['Headline']))
-
-    seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
-    input_seqs, target_seqs = zip(*seq_pairs)
-    
-    input_lengths = [len(s) for s in input_seqs]
-    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
-    
-    target_lengths = [len(s) for s in target_seqs]
-    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
-
-    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
-    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
-    
-    input_var = input_var.to(device)
-    target_var = target_var.to(device)
-        
-    return input_var, input_lengths, target_var, target_lengths
-
 
 # ## copy from train.py
 
 # In[ ]:
 
-
-def as_minutes(s):
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)
-
-def time_since(since, percent):
-    now = time.time()
-    s = now - since
-    es = s / (percent)
-    rs = es - s
-    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
 
 def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="eng_fra_model.pt"):
     path = "../models/" + name
@@ -538,11 +500,10 @@ def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  nam
                 'timestamp': str(datetime.datetime.now()),
                 }, path)
 
-                #'encoder_optimizer_state_dict': encoder_optimizer.state_dict(),
-                #'decoder_optimizer_state_dict': decoder_optimizer.state_dict(),
 
 
-def train(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip):
+
+def train_batch(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip):
     
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
@@ -591,52 +552,41 @@ def train(input_batches, input_lengths, target_batches, target_lengths, batch_si
     #return loss.data[0], ec, dc
     return loss.item(), ec, dc
 
-def restore_training(encoder, decoder):
-    print("Restoring training environment")
-    checkpt = torch.load('../models/sum_model.pt')
-    encoder.load_state_dict(checkpt["encoder_model_state_dict"])
-    decoder.load_state_dict(checkpt["decoder_model_state_dict"])
-    #encoder_optimizer.load_state_dict(checkpt["encoder_optimizer_state_dict"])
-    #decoder_optimizer.load_state_dict(checkpt["decoder_optimizer_state_dict"])
-    print("Restored training environment")
 
+def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epochs, batch_size, criterion, clip):
 
+    logging.info("Start training")
+    running_loss = 0
 
-
-def train_iter(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer,         epoch, n_epochs, batch_size, print_every, evaluate_every, plot_every, save_every, criterion, clip):
-
-    start = time.time()
-    print_loss_total = 0 # Reset every print_every
-
-    while epoch < n_epochs:
-        epoch += 1
+    for epoch in range(n_epochs):
         
         # Get training data for this cycle
-        input_batches, input_lengths, target_batches, target_lengths =                 random_batch(batch_size, pairs)
+        input_seqs, input_lengths, target_seqs, target_lengths = random_batch(batch_size, pairs)
 
         # Run the train function
-        loss, ec, dc = train(
-            input_batches, input_lengths, target_batches, target_lengths, batch_size,
+        loss, ec, dc = train_batch(
+            input_seqs, input_lengths, target_seqs, target_lengths, batch_size,
             encoder, decoder,
             encoder_optimizer, decoder_optimizer, criterion, clip
         )
 
         # Keep track of loss
-        print_loss_total += loss
-        
-        if epoch % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
-            print(print_summary)
-            
+        running_loss += loss
+    
 
-        if epoch % save_every == 0:
-            print("The model is saved.")
-            save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
+        if epoch % 10 == 0:
+            avg_running_loss = running_loss / 10
+            running_loss = 0
+            logging.info("Iteration: %d running loss: %f", epoch, avg_running_loss)
 
-        if epoch % evaluate_every == 0:
+        if epoch % 1000 == 0:
+            logging.info("Iteration: %d model saved", epoch)
+            save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, name=CHECKPOINT_FNAME)
+
+        if epoch % 100 == 0:
+            logging.info("Iteration: %d, evaluating", epoch)
             evaluate_randomly(encoder, decoder, pairs)
+
 
 
 def random_batch(batch_size, pairs):
@@ -647,8 +597,8 @@ def random_batch(batch_size, pairs):
     # Choose random pairs
     for i in range(batch_size):
         pair = random.choice(pairs)
-        input_seqs.append(indexes_from_sentence( pair['Headline']))
-        target_seqs.append(indexes_from_sentence(pair['Text']))
+        input_seqs.append(indexes_from_sentence( pair[0]))
+        target_seqs.append(indexes_from_sentence(pair[1]))
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
     input_seqs, target_seqs = zip(*seq_pairs)
     
@@ -668,26 +618,9 @@ def random_batch(batch_size, pairs):
 
 
 
-# # copy from main.py
-
-# In[ ]:
-
-
-def show_plot(points):
-    plt.figure()
-    fig, ax = plt.subplots()
-    # put ticks at regular intervals
-    loc = ticker.MultipleLocator(base=0.2) 
-    ax.yaxis.set_major_locator(loc)
-    plt.plot(points)
-
-
-# In[ ]:
-
-
 
 attn_model = 'dot'
-hidden_size = EMBEDDING_DIM
+hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
@@ -695,54 +628,25 @@ batch_size = 4
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 0.00001
+learning_rate = 1e-4
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
-#n_epochs = 10
-epoch = 0
-plot_every = 20
-save_every = 100
-print_every = 1
-evaluate_every = 3
-weight_decay=0
+weight_decay = 0
 
 # Initialize models
-encoder = EncoderRNN(VOCAB_SIZE, hidden_size, pretrained_embeddings, n_layers, dropout=dropout)
-decoder = DecoderRNN(attn_model, hidden_size, VOCAB_SIZE, pretrained_embeddings, n_layers, dropout=dropout)
+encoder = EncoderRNN(VOCAB_SIZE, hidden_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
+decoder = DecoderRNN(attn_model, hidden_size, VOCAB_SIZE, pretrained_embeddings, n_layers, dropout=dropout).to(device)
 
-# Initialize optimizers and criterion
-#encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
-#decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
-
-#restore_training(encoder, decoder)
 
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
 criterion = nn.CrossEntropyLoss()
 
-encoder.to(device)
-decoder.to(device)
+
+train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, criterion, clip)
 
 
-train_iter(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,         epoch, n_epochs, batch_size, print_every, evaluate_every,         plot_every, save_every, criterion, clip)
-
-
-#plot_losses = []
-#show_plot(plot_losses)
-
-evaluate_randomly(encoder, decoder, train_data)
-
-save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
 
 
 

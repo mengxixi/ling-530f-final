@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+*._*.py
 # C extensions
 *.so
 
@@ -158,6 +158,9 @@ Backup[ ]of[ ]*.numbers/
 # Misc
 nltk_data/
 data/tmp/
+data/gigaword/
+data/gigawordunsplit/
+models/glove/
 models/glove*.txt
 models/crawl-300d-2M-subword.bin
 models/*.ckpt

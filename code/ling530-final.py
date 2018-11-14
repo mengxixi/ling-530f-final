@@ -277,7 +277,7 @@ def masked_cross_entropy(logits, target, length):
     # logits_flat: (batch * max_len, num_classes)
     logits_flat = logits.view(-1, logits.size(-1))
     # log_probs_flat: (batch * max_len, num_classes)
-    log_probs_flat = F.log_softmax(logits_flat)
+    log_probs_flat = F.log_softmax(logits_flat, dim=1)
     # target_flat: (batch * max_len, 1)
     target_flat = target.view(-1, 1)
     # losses_flat: (batch * max_len, 1)
@@ -365,7 +365,7 @@ class Attn(nn.Module):
                 attn_energies[b, i] = self.score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
 
         # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
-        return F.softmax(attn_energies).unsqueeze(1)
+        return F.softmax(attn_energies, dim=1).unsqueeze(1)
     
     def score(self, hidden, encoder_output):
         if self.method == 'dot':
@@ -393,7 +393,7 @@ class DecoderRNN(nn.Module):
         # Define layers
 
         glove_embeddings = torch.tensor(pretrained_embeddings)
-        self.embedding = nn.Embedding(output_size, hidden_size).                from_pretrained(glove_embeddings, freeze=False)
+        self.embedding = nn.Embedding(output_size, hidden_size).                from_pretrained(glove_embeddings, freeze=True)
 
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
@@ -426,7 +426,7 @@ class DecoderRNN(nn.Module):
         rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
         context = context.squeeze(1)       # B x S=1 x N -> B x N
         concat_input = torch.cat((rnn_output, context), 1)
-        concat_output = F.tanh(self.concat(concat_input))
+        concat_output = torch.tanh(self.concat(concat_input))
 
         # Finally predict next token (Luong eq. 6, without softmax)
         output = self.out(concat_output)
@@ -643,7 +643,7 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 48
+batch_size = 32
 
 # Configure training/optimization
 clip = 50.0

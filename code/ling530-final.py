@@ -6,6 +6,7 @@ import random
 import shutil
 import datetime
 import logging
+import pickle
 
 import numpy as np
 import torch
@@ -57,127 +58,141 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # Split data into 80% training and 20% dev.
 
 # In[ ]:
+TMP = "../data/tmp"
+pkl_names = ['train_data', 'dev_data', 'word2index', 'index2word']
+pickles = []
+if os.path.exists('../data/tmp/train_data.pkl'):
+    for i, name in enumerate(pkl_names):
+        with open(os.path.join(TMP, name+'.pkl'), 'rb') as handle:
+            pickles.append(pickle.load(handle))
+    train_data = pickles[0]
+    dev_data = pickles[1]
+    WORD_2_INDEX = pickles[2]
+    INDEX_2_WORD = pickles[3]
+
+    
+else:
+    logging.info("Splitting data into train and dev...")
 
 
-logging.info("Splitting data into train and dev...")
-'''
-fnames = os.listdir(DATA_DIR)
-random.shuffle(fnames)
+    fnames = sorted(os.listdir(DATA_DIR))
+    random.shuffle(fnames)
 
-train_end = int(len(fnames)*0.8)
+    train_end = int(len(fnames)*0.8)
 
-for i, fname in enumerate(fnames):
-    src = os.path.join(DATA_DIR, fname)
-    if i < train_end:
-        dst = os.path.join(TRAIN_DIR, fname)
-    else:
-        dst = os.path.join(DEV_DIR, fname)
-    shutil.copyfile(src, dst)  
-        
-'''
-
-# Count the frequency of each word appears in the dataset
-
-# In[ ]:
-
-
-def update_freq_dict(freq_dict, tokens):
-    for t in tokens:
-        if t not in freq_dict:
-            freq_dict[t] = 0
-        freq_dict[t] += 1
-
-def build_freq_dict(data_dir):
-    freq_dict = dict()
-    for fname in os.listdir(data_dir):
-        fpath = os.path.join(data_dir, fname)
-        with open(fpath) as f:
-            for line in f:
-                obj = json.loads(line)
-                headline = [t for t in obj['Headline'].split()]
-                text = [t for t in obj['Text'].split()]
-                update_freq_dict(freq_dict, headline)
-                update_freq_dict(freq_dict, text)
-    return freq_dict
-
-logging.info("Building frequency dict on TRAIN data...")
-freq_dict = build_freq_dict(TRAIN_DIR)
-logging.info("Number of unique tokens: %d", len(freq_dict))
-
-
-# Convert words with frequency less than or equal to 2 to unk.  Ignore the article if it's headline has known word less than 3.
-
-# In[ ]:
-
-
-WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
-INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
-
-def remove_low_freq_words(freq_dict, tokens):
-    filtered_tokens = []
-    known_count = 0
-    for t in tokens:
-        if freq_dict[t] > MIN_FREQUENCY:
-            filtered_tokens.append(t)
-            known_count += 1
+    for i, fname in enumerate(fnames):
+        src = os.path.join(DATA_DIR, fname)
+        if i < train_end:
+            dst = os.path.join(TRAIN_DIR, fname)
         else:
-            filtered_tokens.append(UNKNOWN_TOKEN)
-    return filtered_tokens, known_count
+            dst = os.path.join(DEV_DIR, fname)
+        shutil.copyfile(src, dst)  
+            
+
+    # Count the frequency of each word appears in the dataset
+
+    # In[ ]:
 
 
-def update_word_index(word2index, index2word, tokens):
-    for t in tokens:
-        if t not in word2index:
-            next_index = len(word2index)
-            word2index[t] = next_index
-            index2word[next_index] = t
+    def update_freq_dict(freq_dict, tokens):
+        for t in tokens:
+            if t not in freq_dict:
+                freq_dict[t] = 0
+            freq_dict[t] += 1
+
+    def build_freq_dict(data_dir):
+        freq_dict = dict()
+        for fname in os.listdir(data_dir):
+            fpath = os.path.join(data_dir, fname)
+            with open(fpath) as f:
+                for line in f:
+                    obj = json.loads(line)
+                    headline = [t for t in obj['Headline'].split()]
+                    text = [t for t in obj['Text'].split()]
+                    update_freq_dict(freq_dict, headline)
+                    update_freq_dict(freq_dict, text)
+        return freq_dict
+
+    logging.info("Building frequency dict on TRAIN data...")
+    freq_dict = build_freq_dict(TRAIN_DIR)
+    logging.info("Number of unique tokens: %d", len(freq_dict))
 
 
-def read_data(data_dir):
-    ignore_count = [0,0]
-    data = []
-    for fname in os.listdir(data_dir):
-        fpath = os.path.join(data_dir, fname)
-        with open(fpath) as f:
-            for line in f:
-                obj = json.loads(line)
-                headline = [t for t in obj['Headline'].split()]
-                text = [t for t in obj['Text'].split()]
-                if data_dir == TRAIN_DIR:
-                    headline, known_count = remove_low_freq_words(freq_dict, headline)
-                    if known_count < MIN_KNOWN_COUNT:
-                        ignore_count[0] += 1
-                        continue
+    # Convert words with frequency less than or equal to 2 to unk.  Ignore the article if it's headline has known word less than 3.
 
-                    # TODO: ignore if too short or too long?
-                    text, _ = remove_low_freq_words(freq_dict, text) 
-                    if len(text) > MAX_TEXT_LENGTH:
-                        ignore_count[1] += 1
-                        continue
-                    update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
-                    update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
-                data.append((headline, text))
-    return data, ignore_count
+    # In[ ]:
+
+
+    WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
+    INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
+
+    def remove_low_freq_words(freq_dict, tokens):
+        filtered_tokens = []
+        known_count = 0
+        for t in tokens:
+            if freq_dict[t] > MIN_FREQUENCY:
+                filtered_tokens.append(t)
+                known_count += 1
+            else:
+                filtered_tokens.append(UNKNOWN_TOKEN)
+        return filtered_tokens, known_count
+
+
+    def update_word_index(word2index, index2word, tokens):
+        for t in tokens:
+            if t not in word2index:
+                next_index = len(word2index)
+                word2index[t] = next_index
+                index2word[next_index] = t
+
+
+    def read_data(data_dir):
+        ignore_count = [0,0]
+        data = []
+        for fname in os.listdir(data_dir):
+            fpath = os.path.join(data_dir, fname)
+            with open(fpath) as f:
+                for line in f:
+                    obj = json.loads(line)
+                    headline = [t for t in obj['Headline'].split()]
+                    text = [t for t in obj['Text'].split()]
+                    if data_dir == TRAIN_DIR:
+                        headline, known_count = remove_low_freq_words(freq_dict, headline)
+                        if known_count < MIN_KNOWN_COUNT:
+                            ignore_count[0] += 1
+                            continue
+
+                        # TODO: ignore if too short or too long?
+                        text, _ = remove_low_freq_words(freq_dict, text) 
+                        if len(text) > MAX_TEXT_LENGTH:
+                            ignore_count[1] += 1
+                            continue
+
+                        update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
+                        update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
+                    data.append((headline, text))
+        return data, ignore_count
     
 
-logging.info("Load TRAIN data and remove low frequency tokens...")
-train_data, ignore_count = read_data(TRAIN_DIR)
+    logging.info("Load TRAIN data and remove low frequency tokens...")
+    train_data, ignore_count = read_data(TRAIN_DIR)
+    assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
+    VOCAB_SIZE = len(WORD_2_INDEX)
+    logging.info("Removed %d articles due to not enough known words in headline", ignore_count[0])
+    logging.info("Removed %d aticles which have length of text greater than MAX_LENGTH", ignore_count[1])
+    logging.info("Number of unique tokens after removing low frequency ones: %d", VOCAB_SIZE)
+
+    logging.info("Load DEV data and remove low frequency tokens...")
+    dev_data, _ = read_data(DEV_DIR)
+
+
+    for i, item in enumerate([train_data, dev_data, WORD_2_INDEX, INDEX_2_WORD]):
+        with open(os.path.join(TMP, pkl_names[i]+".pkl"), 'wb') as handle:
+            pickle.dump(item, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
 VOCAB_SIZE = len(WORD_2_INDEX)
-logging.info("Removed %d articles due to not enough known words in headline", ignore_count[0])
-logging.info("Removed %d aticles which have length of text greater than MAX_LENGTH", ignore_count[1])
-logging.info("Number of unique tokens after removing low frequency ones: %d", VOCAB_SIZE)
 
-logging.info("Load DEV data and remove low frequency tokens...")
-dev_data, _ = read_data(DEV_DIR)
-
-
-# 
-# ## GloVe word embeddings
-# - We wrap this into a separate class for reusablility. Upon initialization, we will load the corresponding file containing all the pre-trained word embeddings (of a certain dimensionality), and we store them in a dictionary where keys are the words.
-# - The get_word_vector function takes in a word and try to look for an existing embedding in the GloVe model. If it fails to find the word, it will initialize a random vector of the same dimension for that word, and put it into the dictionary. This way if we happen to query this word again, we will at least return a consistent vector (as opposed to returning an "unkown" or zero vector for all unseen words).
-
-# In[ ]:
 
 
 class GloVe():

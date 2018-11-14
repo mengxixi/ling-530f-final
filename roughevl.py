@@ -2,8 +2,12 @@
 from pyrouge import Rouge155
 import os
 r = Rouge155()
-r.system_dir = './system'
-r.model_dir = './gold'
+r.system_dir = os.path.join('.','system')
+r.model_dir = os.path.join('.','/gold')
+for d in [r.system_dir, r.model_dir]:
+        if not os.path.exists(d):
+                    os.makedirs(d)
+                    
 r.system_filename_pattern = 'system.(\d+).txt'
 r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 

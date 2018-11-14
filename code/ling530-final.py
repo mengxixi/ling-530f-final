@@ -43,7 +43,7 @@ UNKNOWN_TOKEN = 'unk'
 
 MIN_LENGTH = 3
 MAX_LENGTH = 100
-MIN_FREQUENCY = 2
+MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
 EMBEDDING_DIM = 200
@@ -59,7 +59,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 logging.info("Splitting data into train and dev...")
-
+'''
 fnames = os.listdir(DATA_DIR)
 random.shuffle(fnames)
 
@@ -73,7 +73,7 @@ for i, fname in enumerate(fnames):
         dst = os.path.join(DEV_DIR, fname)
     shutil.copyfile(src, dst)  
         
-
+'''
 
 # Count the frequency of each word appears in the dataset
 
@@ -133,7 +133,7 @@ def update_word_index(word2index, index2word, tokens):
 
 
 def read_data(data_dir):
-    ignore_count = 0
+    ignore_count = [0,0]
     data = []
     for fname in os.listdir(data_dir):
         fpath = os.path.join(data_dir, fname)
@@ -145,12 +145,14 @@ def read_data(data_dir):
                 if data_dir == TRAIN_DIR:
                     headline, known_count = remove_low_freq_words(freq_dict, headline)
                     if known_count < MIN_KNOWN_COUNT:
-                        ignore_count += 1
+                        ignore_count[0] += 1
                         continue
 
                     # TODO: ignore if too short or too long?
                     text, _ = remove_low_freq_words(freq_dict, text) 
-
+                    if len(text) > MAX_LENGTH:
+                        ignore_count[1] += 1
+                        continue
                     update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
                     update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
                 data.append((headline, text))
@@ -161,7 +163,8 @@ logging.info("Load TRAIN data and remove low frequency tokens...")
 train_data, ignore_count = read_data(TRAIN_DIR)
 assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
 VOCAB_SIZE = len(WORD_2_INDEX)
-logging.info("Removed %d articles due to not enough known words in headline", ignore_count)
+logging.info("Removed %d articles due to not enough known words in headline", ignore_count[0])
+logging.info("Removed %d aticles which have length of text greater than MAX_LENGTH", ignore_count[1])
 logging.info("Number of unique tokens after removing low frequency ones: %d", VOCAB_SIZE)
 
 logging.info("Load DEV data and remove low frequency tokens...")
@@ -216,7 +219,7 @@ for i in range(VOCAB_SIZE):
 def indexes_from_sentence(tokens):
     default_idx = WORD_2_INDEX[UNKNOWN_TOKEN]
     idxs = [WORD_2_INDEX.get(word, default_idx) for word in tokens]
-    return [SOS_token] + idxs + [EOS_token]
+    return idxs + [EOS_token]
 
 # Pad a sentence with the PAD symbol
 def pad_seq(seq, max_length):
@@ -296,7 +299,7 @@ class EncoderRNN(nn.Module):
         self.dropout = dropout
         
         glove_embeddings = torch.tensor(pretrained_embeddings)
-        self.embedding = nn.Embedding(input_size, hidden_size).                from_pretrained(glove_embeddings, freeze=False)
+        self.embedding = nn.Embedding(input_size, hidden_size).from_pretrained(glove_embeddings, freeze=True)
         
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         
@@ -579,6 +582,7 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
             running_loss = 0
             logging.info("Iteration: %d running loss: %f", epoch, avg_running_loss)
 
+
         if epoch % 1000 == 0:
             logging.info("Iteration: %d model saved", epoch)
             save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, name=CHECKPOINT_FNAME)
@@ -623,7 +627,7 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 8
+batch_size = 48
 
 # Configure training/optimization
 clip = 50.0

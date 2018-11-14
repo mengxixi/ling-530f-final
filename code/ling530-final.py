@@ -42,7 +42,8 @@ EOS_token = 2
 UNKNOWN_TOKEN = 'unk' 
 
 MIN_LENGTH = 3
-MAX_LENGTH = 100
+MAX_LENGTH = 20
+MAX_TEXT_LENGTH = 100
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
@@ -150,7 +151,7 @@ def read_data(data_dir):
 
                     # TODO: ignore if too short or too long?
                     text, _ = remove_low_freq_words(freq_dict, text) 
-                    if len(text) > MAX_LENGTH:
+                    if len(text) > MAX_TEXT_LENGTH:
                         ignore_count[1] += 1
                         continue
                     update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)

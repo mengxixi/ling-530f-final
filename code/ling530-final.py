@@ -123,8 +123,10 @@ else:
     # In[ ]:
 
 
-    WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
-    INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
+    vocab_freq_dict = {}
+
+    WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2}#, "unk": 3}
+    INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS"}#, 3:"unk"}
 
     def remove_low_freq_words(freq_dict, tokens):
         filtered_tokens = []
@@ -149,6 +151,7 @@ else:
     def read_data(data_dir):
         ignore_count = [0,0]
         data = []
+        unk_count = 0
         for fname in os.listdir(data_dir):
             fpath = os.path.join(data_dir, fname)
             with open(fpath) as f:
@@ -166,9 +169,19 @@ else:
                             continue
                         # TODO: ignore if too short or too long?
                         text, _ = remove_low_freq_words(freq_dict, text) 
-                        update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
-                        update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
+                        for token in (headline + text):
+                            if token == 'unk':
+                                unk_count += 1
+                            elif token not in vocab_freq_dict.keys():
+                                vocab_freq_dict[token] = freq_dict[token]
+
                     data.append((headline, text))
+
+        # Now ready to build word indexes
+        vocab_freq_dict['unk'] = unk_count
+        sorted_words = sorted(vocab_freq_dict, key=vocab_freq_dict.get, reverse=True)
+        update_word_index(WORD_2_INDEX, INDEX_2_WORD, sorted_words)
+
         return data, ignore_count
     
 
@@ -255,7 +268,6 @@ def sequence_mask(sequence_length, max_len=None):
 
 
 def masked_cross_entropy(logits, target, length):
-
     length = Variable(torch.LongTensor(length)).to(device)
     """
     Args:
@@ -562,11 +574,13 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
         decoder_input = target_batches[t] # Next input is current target
 
     # Loss calculation and backpropagation
+
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
         target_lengths
     )
+    # loss = nn.AdaptiveLogSoftmaxWithLoss()
     loss.backward()
     
     # Clip gradient norms

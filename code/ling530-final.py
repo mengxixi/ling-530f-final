@@ -43,8 +43,9 @@ EOS_token = 2
 UNKNOWN_TOKEN = 'unk' 
 
 MIN_LENGTH = 3
-MAX_LENGTH = 20
-MAX_TEXT_LENGTH = 100
+MAX_LENGTH = 25
+MAX_HEADLINE_LENGTH = 20
+MAX_TEXT_LENGTH = 35
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
@@ -73,8 +74,7 @@ if os.path.exists('../data/tmp/train_data.pkl'):
     
 else:
     logging.info("Splitting data into train and dev...")
-
-
+    '''
     fnames = sorted(os.listdir(DATA_DIR))
     random.shuffle(fnames)
 
@@ -87,7 +87,7 @@ else:
         else:
             dst = os.path.join(DEV_DIR, fname)
         shutil.copyfile(src, dst)  
-            
+    ''' 
 
     # Count the frequency of each word appears in the dataset
 
@@ -155,19 +155,17 @@ else:
                 for line in f:
                     obj = json.loads(line)
                     headline = [t for t in obj['Headline'].split()]
-                    text = [t for t in obj['Text'].split()]
+                    text = [t for t in obj['Text'].split()][:MAX_TEXT_LENGTH]
                     if data_dir == TRAIN_DIR:
                         headline, known_count = remove_low_freq_words(freq_dict, headline)
                         if known_count < MIN_KNOWN_COUNT:
                             ignore_count[0] += 1
                             continue
-
-                        # TODO: ignore if too short or too long?
-                        text, _ = remove_low_freq_words(freq_dict, text) 
-                        if len(text) > MAX_TEXT_LENGTH:
+                        if len(headline) > MAX_HEADLINE_LENGTH:
                             ignore_count[1] += 1
                             continue
-
+                        # TODO: ignore if too short or too long?
+                        text, _ = remove_low_freq_words(freq_dict, text) 
                         update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
                         update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
                     data.append((headline, text))
@@ -179,7 +177,7 @@ else:
     assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
     VOCAB_SIZE = len(WORD_2_INDEX)
     logging.info("Removed %d articles due to not enough known words in headline", ignore_count[0])
-    logging.info("Removed %d aticles which have length of text greater than MAX_LENGTH", ignore_count[1])
+    logging.info("Removed %d articles due to headline length greater than MAX_HEADLINE_LENGTH", ignore_count[1])
     logging.info("Number of unique tokens after removing low frequency ones: %d", VOCAB_SIZE)
 
     logging.info("Load DEV data and remove low frequency tokens...")
@@ -511,18 +509,29 @@ def evaluate_randomly(encoder, decoder, pairs):
 # In[ ]:
 
 
-def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="eng_fra_model.pt"):
+def save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="gigaword_model.pt"):
     path = "../models/" + name
     torch.save({
                 'encoder_model_state_dict': encoder.state_dict(),
                 'decoder_model_state_dict': decoder.state_dict(),
+                'encoder_optimizer_state_dict':encoder_optimizer.state_dict(),
+                'decoder_optimizer_state_dict':decoder_optimizer.state_dict(),
                 'timestamp': str(datetime.datetime.now()),
                 }, path)
 
+def load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  name="gigaword_model.pt"):
+    path = "../models/" + name
+    if os.path.isfile(path):
+        logging.info("Loading checkpoint")
+        checkpoint = torch.load(path)
+        encoder.load_state_dict(checkpoint['encoder_model_state_dict'])
+        decoder.load_state_dict(checkpoint['decoder_model_state_dict'])
+        encoder_optimizer.load_state_dict(checkpoint['encoder_optimizer_state_dict'])
+        decoder_optimizer.load_state_dict(checkpoint['decoder_optimizer_state_dict'])
 
 
 
-def train_batch(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, clip):
+def train_batch(input_batches, input_lengths, target_batches, target_lengths, batch_size, encoder, decoder, encoder_optimizer, decoder_optimizer, clip):
     
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
@@ -572,68 +581,67 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
     return loss.item(), ec, dc
 
 
-def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epochs, batch_size, criterion, clip):
+def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epochs, batch_size, clip):
 
     logging.info("Start training")
-    running_loss = 0
 
     for epoch in range(n_epochs):
+        logging.info("Starting epoch: %d", epoch)
+        running_loss = 0
         
         # Get training data for this cycle
-        input_seqs, input_lengths, target_seqs, target_lengths = random_batch(batch_size, pairs)
+        for batch_ind, batch_data in enumerate(random_batch(batch_size, pairs)):
+            input_seqs, input_lengths, target_seqs, target_lengths = batch_data
+            # Run the train function
+            loss, ec, dc = train_batch(
+                input_seqs, input_lengths, target_seqs, target_lengths, batch_size,
+                encoder, decoder,
+                encoder_optimizer, decoder_optimizer, clip
+            )
+            # Keep track of loss
+            running_loss += loss
+        
 
-        # Run the train function
-        loss, ec, dc = train_batch(
-            input_seqs, input_lengths, target_seqs, target_lengths, batch_size,
-            encoder, decoder,
-            encoder_optimizer, decoder_optimizer, criterion, clip
-        )
+            if batch_ind % 5 == 0:
+                avg_running_loss = running_loss / 5
+                running_loss = 0
+                logging.info("Iteration: %d running loss: %f", batch_ind, avg_running_loss)
+            
+            if batch_ind % 50 == 0:
+                logging.info("Iteration: %d, evaluating", batch_ind)
+                evaluate_randomly(encoder, decoder, pairs)
 
-        # Keep track of loss
-        running_loss += loss
-    
-
-        if epoch % 5 == 0:
-            avg_running_loss = running_loss / 5
-            running_loss = 0
-            logging.info("Iteration: %d running loss: %f", epoch, avg_running_loss)
-
-
-        if epoch % 1000 == 0:
-            logging.info("Iteration: %d model saved", epoch)
-            save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, name=CHECKPOINT_FNAME)
-
-        if epoch % 50 == 0:
-            logging.info("Iteration: %d, evaluating", epoch)
-            evaluate_randomly(encoder, decoder, pairs)
+            if batch_ind % 1000 == 0:
+                logging.info("Iteration: %d model saved",batch_ind)
+                save_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, name=CHECKPOINT_FNAME)
 
 
 
-def random_batch(batch_size, pairs):
+def random_batch(batch_size, data):
+    random.shuffle(data)
+    end_index = len(data) - len(data) % batch_size
     input_seqs = []
     target_seqs = []
-
     # Choose random pairs
-    for i in range(batch_size):
-        pair = random.choice(pairs)
-        input_seqs.append(indexes_from_sentence( pair[0]))
-        target_seqs.append(indexes_from_sentence(pair[1]))
-    seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
-    input_seqs, target_seqs = zip(*seq_pairs)
+    for i in range(0, end_index, batch_size):
+        pairs = data[i:i+batch_size]
+        input_seqs = [indexes_from_sentence( pair[0]) for pair in pairs]
+        target_seqs = [indexes_from_sentence(pair[1]) for pair in pairs]
+        seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
+        input_seqs, target_seqs = zip(*seq_pairs)
     
-    input_lengths = [len(s) for s in input_seqs]
-    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
-    
-    target_lengths = [len(s) for s in target_seqs]
-    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
-
-    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
-    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
-    
-    input_var = input_var.to(device)
-    target_var = target_var.to(device)
+        input_lengths = [len(s) for s in input_seqs]
+        input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
         
-    return input_var, input_lengths, target_var, target_lengths
+        target_lengths = [len(s) for s in target_seqs]
+        target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+
+        input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
+        target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
+        
+        input_var = input_var.to(device)
+        target_var = target_var.to(device)
+        yield input_var, input_lengths, target_var, target_lengths
 
 
 
@@ -643,7 +651,7 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.0
 
-batch_size = 32
+batch_size = 64
 
 # Configure training/optimization
 clip = 50.0
@@ -660,10 +668,10 @@ decoder = DecoderRNN(attn_model, hidden_size, VOCAB_SIZE, pretrained_embeddings,
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
-criterion = nn.CrossEntropyLoss()
+load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  "gigaword_model.pt")
 
 
-train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, criterion, clip)
+train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
 
 

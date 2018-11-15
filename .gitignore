@@ -168,3 +168,4 @@ models/*.pt
 code/save/eng_fra_model.pt
 code/__pycache__
 log.txt
+*screenlog.*

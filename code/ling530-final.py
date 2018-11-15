@@ -649,16 +649,16 @@ def random_batch(batch_size, data):
 attn_model = 'dot'
 hidden_size = 200
 n_layers = 2
-dropout = 0.0
+dropout = 0.5
 
-batch_size = 64
+batch_size = 32
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 1e-5
+learning_rate = 1e-3
 decoder_learning_ratio = 5.0
 n_epochs = 4000000
-weight_decay = 0
+weight_decay = 1e-4
 
 # Initialize models
 encoder = EncoderRNN(VOCAB_SIZE, hidden_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)

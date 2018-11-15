@@ -668,7 +668,7 @@ decoder = DecoderRNN(attn_model, hidden_size, VOCAB_SIZE, pretrained_embeddings,
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
-load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer,  "gigaword_model.pt")
+load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)

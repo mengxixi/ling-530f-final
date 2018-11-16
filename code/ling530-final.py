@@ -46,10 +46,11 @@ MIN_LENGTH = 3
 MAX_LENGTH = 25
 MAX_HEADLINE_LENGTH = 20
 MAX_TEXT_LENGTH = 40
+MIN_TEXT_LENGTH = 5
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
-EMBEDDING_DIM = 200
+EMBEDDING_DIM = 300
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -149,7 +150,7 @@ else:
 
 
     def read_data(data_dir):
-        ignore_count = [0,0]
+        ignore_count = [0,0,0]
         data = []
         unk_count = 0
         for fname in os.listdir(data_dir):
@@ -160,13 +161,17 @@ else:
                     headline = [t for t in obj['Headline'].split()]
                     text = [t for t in obj['Text'].split()][:MAX_TEXT_LENGTH]
                     if data_dir == TRAIN_DIR:
+                        if len(headline) > MAX_HEADLINE_LENGTH:
+                            ignore_count[1] += 1
+                            continue
+                        if len(text) < MIN_TEXT_LENGTH:
+                            ignore_count[2] +=1
+                            continue
                         headline, known_count = remove_low_freq_words(freq_dict, headline)
                         if known_count < MIN_KNOWN_COUNT:
                             ignore_count[0] += 1
                             continue
-                        if len(headline) > MAX_HEADLINE_LENGTH:
-                            ignore_count[1] += 1
-                            continue
+                    
                         # TODO: ignore if too short or too long?
                         text, _ = remove_low_freq_words(freq_dict, text) 
                         for token in (headline + text):
@@ -191,6 +196,7 @@ else:
     VOCAB_SIZE = len(WORD_2_INDEX)
     logging.info("Removed %d articles due to not enough known words in headline", ignore_count[0])
     logging.info("Removed %d articles due to headline length greater than MAX_HEADLINE_LENGTH", ignore_count[1])
+    logging.info("Removed %d articles due to text length less than MIN_TEXT_LENGTH", ignore_count[2])
     logging.info("Number of unique tokens after removing low frequency ones: %d", VOCAB_SIZE)
 
     logging.info("Load DEV data and remove low frequency tokens...")
@@ -224,7 +230,7 @@ class GloVe():
             return embedding
         else:
             return self.word_embedding_dict[word]
-glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.200d.txt'), dim=200)
+glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.300d.txt'), dim=300)
 
 
 # ## Gather word embeddings for tokens in the training data
@@ -660,7 +666,7 @@ def random_batch(batch_size, data):
 
 
 attn_model = 'none'
-hidden_size = 200
+hidden_size = 300
 n_layers = 2
 dropout = 0.5
 

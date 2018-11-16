@@ -321,8 +321,11 @@ class EncoderRNN(nn.Module):
         
     def forward(self, input_seqs, input_lengths, hidden=None):
         embedded = self.embedding(input_seqs)
-        
-        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        try:
+            packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        except:
+            print(input_seqs)
+            print(input_lengths)
         outputs, hidden = self.gru(packed, hidden)
         
         # unpack (back to padded)
@@ -403,6 +406,8 @@ class DecoderRNN(nn.Module):
         # Choose attention model
         if attn_model != 'none':
             self.attn = Attn(attn_model, hidden_size)
+        else:
+            self.attn = None
 
     def forward(self, input_seq, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
@@ -415,24 +420,27 @@ class DecoderRNN(nn.Module):
 
         # Get current hidden state from input word and last hidden state
         rnn_output, hidden = self.gru(embedded, last_hidden)
-
-        # Calculate attention from current RNN state and all encoder outputs;
-        # apply to encoder outputs to get weighted average
-        attn_weights = self.attn(rnn_output, encoder_outputs)
-        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x S=1 x N
-
-        # Attentional vector using the RNN hidden state and context vector
-        # concatenated together (Luong eq. 5)
         rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
-        context = context.squeeze(1)       # B x S=1 x N -> B x N
-        concat_input = torch.cat((rnn_output, context), 1)
-        concat_output = torch.tanh(self.concat(concat_input))
+        if self.attn:
+            # Calculate attention from current RNN state and all encoder outputs;
+            # apply to encoder outputs to get weighted average
+            attn_weights = self.attn(rnn_output, encoder_outputs)
+            context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x S=1 x N
 
-        # Finally predict next token (Luong eq. 6, without softmax)
-        output = self.out(concat_output)
+            # Attentional vector using the RNN hidden state and context vector
+            # concatenated together (Luong eq. 5)
+        
+            context = context.squeeze(1)       # B x S=1 x N -> B x N
+            concat_input = torch.cat((rnn_output, context), 1)
+            concat_output = torch.tanh(self.concat(concat_input))
 
-        # Return final output, hidden state, and attention weights (for visualization)
-        return output, hidden, attn_weights
+            # Finally predict next token (Luong eq. 6, without softmax)
+            output = self.out(concat_output)
+
+            # Return final output, hidden state, and attention weights (for visualization)
+            return output, hidden, attn_weights
+        output = self.out(rnn_output)
+        return output, hidden, None
 
 
 # ## copy from eval.py
@@ -468,7 +476,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs
             )
-            decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
+            #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
 
             # Choose top word from output
@@ -488,7 +496,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
         encoder.train(True)
         decoder.train(True)
         
-        return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
+        return decoded_words#, decoder_attentions[:di+1, :len(encoder_outputs)]
 
 def evaluate_randomly(encoder, decoder, pairs):
     article = random.choice(pairs)
@@ -498,7 +506,8 @@ def evaluate_randomly(encoder, decoder, pairs):
     if headline is not None:
         print('=', ' '.join(headline))
 
-    output_words, attentions = evaluate(headline, encoder, decoder)
+    #output_words, attentions = evaluate(headline, encoder, decoder)
+    output_words = evaluate(headline, encoder, decoder)
     output_words = output_words
     output_sentence = ' '.join(output_words)
     
@@ -648,7 +657,7 @@ def random_batch(batch_size, data):
 
 
 
-attn_model = 'dot'
+attn_model = 'none'
 hidden_size = 200
 n_layers = 2
 dropout = 0.5

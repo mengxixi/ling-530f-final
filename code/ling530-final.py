@@ -45,11 +45,11 @@ UNKNOWN_TOKEN = 'unk'
 MIN_LENGTH = 3
 MAX_LENGTH = 25
 MAX_HEADLINE_LENGTH = 20
-MAX_TEXT_LENGTH = 35
+MAX_TEXT_LENGTH = 50
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
-EMBEDDING_DIM = 200
+EMBEDDING_DIM =  300
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -224,7 +224,8 @@ class GloVe():
             return embedding
         else:
             return self.word_embedding_dict[word]
-glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.200d.txt'), dim=200)
+
+glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.300d.txt'), dim=300)
 
 
 # ## Gather word embeddings for tokens in the training data
@@ -407,7 +408,6 @@ class DecoderRNN(nn.Module):
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
-        self.out = nn.Linear(hidden_size, 1024)
         
         # Choose attention model
         if attn_model != 'none':
@@ -438,10 +438,9 @@ class DecoderRNN(nn.Module):
         concat_output = torch.tanh(self.concat(concat_input))
 
         # Finally predict next token (Luong eq. 6, without softmax)
-        output = self.out(concat_output)
-
+        
         # Return final output, hidden state, and attention weights (for visualization)
-        return output, hidden, attn_weights
+        return concat_output, hidden, attn_weights
 
 
 # ## copy from eval.py
@@ -560,7 +559,7 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
 
 
     max_target_length = max(target_lengths)
-    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 1024)).to(device)
+   # all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 300)).to(device)
 
 
     loss = 0
@@ -570,7 +569,7 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
             decoder_input, decoder_hidden, encoder_outputs
         )
 
-        all_decoder_outputs[t] = decoder_output
+        #all_decoder_outputs[t] = decoder_output
         asm_loss = crit(decoder_output, target_batches[t])
         loss += asm_loss.loss
         decoder_input = target_batches[t] # Next input is current target
@@ -663,7 +662,7 @@ def random_batch(batch_size, data):
 
 
 attn_model = 'dot'
-hidden_size = 200
+hidden_size = 300
 n_layers = 2
 dropout = 0.5
 
@@ -686,7 +685,7 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
-crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [100, 1000, 5000, 10000]).to(device)
+crit = nn.AdaptiveLogSoftmaxWithLoss(hidden_size, VOCAB_SIZE, [100, 1000, 5000, 10000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 

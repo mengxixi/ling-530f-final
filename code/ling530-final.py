@@ -268,6 +268,19 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
+def masked_adasoft(logits, target, lengths):
+    loss = 0
+    for i in range(logits.size(0)):
+        mask = (np.array(lengths) > i).astype(int)
+        logits_i = logits[i] * torch.tensor(mask, dtype=torch.float).unsqueeze(1).to(device)
+        targets_i = target[i] * torch.tensor(mask, dtype=torch.long).to(device)
+        asm_output = crit(logits_i, targets_i)
+        loss += asm_output.loss
+
+    loss /= logits.size(0)
+    return loss
+
+
 def masked_cross_entropy(logits, target, length):
     length = Variable(torch.LongTensor(length)).to(device)
     """
@@ -412,6 +425,8 @@ class DecoderRNN(nn.Module):
         # Choose attention model
         if attn_model != 'none':
             self.attn = Attn(attn_model, hidden_size)
+        else:
+            self.attn = None
 
     def forward(self, input_seq, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
@@ -424,23 +439,26 @@ class DecoderRNN(nn.Module):
 
         # Get current hidden state from input word and last hidden state
         rnn_output, hidden = self.gru(embedded, last_hidden)
+        rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
+        if self.attn:
 
         # Calculate attention from current RNN state and all encoder outputs;
-        # apply to encoder outputs to get weighted average
-        attn_weights = self.attn(rnn_output, encoder_outputs)
-        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x S=1 x N
+            # apply to encoder outputs to get weighted average
+            attn_weights = self.attn(rnn_output, encoder_outputs)
+            context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x S=1 x N
 
-        # Attentional vector using the RNN hidden state and context vector
-        # concatenated together (Luong eq. 5)
-        rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
-        context = context.squeeze(1)       # B x S=1 x N -> B x N
-        concat_input = torch.cat((rnn_output, context), 1)
-        concat_output = torch.tanh(self.concat(concat_input))
+            # Attentional vector using the RNN hidden state and context vector
+            # concatenated together (Luong eq. 5)
+
+            context = context.squeeze(1)       # B x S=1 x N -> B x N
+            concat_input = torch.cat((rnn_output, context), 1)
+            concat_output = torch.tanh(self.concat(concat_input))
 
         # Finally predict next token (Luong eq. 6, without softmax)
         
         # Return final output, hidden state, and attention weights (for visualization)
-        return concat_output, hidden, attn_weights
+            return concat_output, hidden, attn_weights
+        return rnn_output, hidden, None
 
 
 # ## copy from eval.py
@@ -476,12 +494,13 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs
             )
-            decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
+            #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
 
             # Choose top word from output
-            topv, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
+            ni = crit.predict(decoder_output)
+            # topv, topi = decoder_output.data.topk(1)
+            # ni = topi[0][0]
             if ni == EOS_token:
                 decoded_words.append('<EOS>')
                 break
@@ -496,7 +515,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
         encoder.train(True)
         decoder.train(True)
         
-        return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
+        return decoded_words#, decoder_attentions[:di+1, :len(encoder_outputs)]
 
 def evaluate_randomly(encoder, decoder, pairs):
     article = random.choice(pairs)
@@ -506,7 +525,8 @@ def evaluate_randomly(encoder, decoder, pairs):
     if headline is not None:
         print('=', ' '.join(headline))
 
-    output_words, attentions = evaluate(headline, encoder, decoder)
+    #output_words, attentions = evaluate(headline, encoder, decoder)
+    output_words = evaluate(headline, encoder, decoder)
     output_words = output_words
     output_sentence = ' '.join(output_words)
     
@@ -559,29 +579,24 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
 
 
     max_target_length = max(target_lengths)
-   # all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 300)).to(device)
+    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 300)).to(device)
 
 
-    loss = 0
     # Run through decoder one time step at a time
     for t in range(max_target_length):
         decoder_output, decoder_hidden, decoder_attn = decoder(
             decoder_input, decoder_hidden, encoder_outputs
         )
-
-        #all_decoder_outputs[t] = decoder_output
-        asm_loss = crit(decoder_output, target_batches[t])
-        loss += asm_loss.loss
+        all_decoder_outputs[t] = decoder_output
         decoder_input = target_batches[t] # Next input is current target
 
     # Loss calculation and backpropagation
-
+    loss = masked_adasoft(all_decoder_outputs, target_batches, target_lengths)
     # loss = masked_cross_entropy(
     #     all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
     #     target_batches.transpose(0, 1).contiguous(), # -> batch x seq
     #     target_lengths
     # )
-    loss /= max_target_length
     loss.backward()
     
     # Clip gradient norms
@@ -640,8 +655,8 @@ def random_batch(batch_size, data):
     # Choose random pairs
     for i in range(0, end_index, batch_size):
         pairs = data[i:i+batch_size]
-        input_seqs = [indexes_from_sentence( pair[0]) for pair in pairs]
-        target_seqs = [indexes_from_sentence(pair[1]) for pair in pairs]
+        input_seqs = [indexes_from_sentence( pair[1]) for pair in pairs]
+        target_seqs = [indexes_from_sentence(pair[0]) for pair in pairs]
         seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
         input_seqs, target_seqs = zip(*seq_pairs)
     
@@ -661,7 +676,7 @@ def random_batch(batch_size, data):
 
 
 
-attn_model = 'dot'
+attn_model = 'none'
 hidden_size = 300
 n_layers = 2
 dropout = 0.5
@@ -685,7 +700,9 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
-crit = nn.AdaptiveLogSoftmaxWithLoss(hidden_size, VOCAB_SIZE, [100, 1000, 5000, 10000]).to(device)
+crit = nn.AdaptiveLogSoftmaxWithLoss(hidden_size, VOCAB_SIZE, [1000, 20000]).to(device)
+#crit = nn.AdaptiveLogSoftmaxWithLoss(hidden_size, VOCAB_SIZE, [100, 2000]).to(device)
+
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 

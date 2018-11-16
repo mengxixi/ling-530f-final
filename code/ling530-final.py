@@ -123,8 +123,10 @@ else:
     # In[ ]:
 
 
-    WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2, "unk": 3}
-    INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS", 3:"unk"}
+    vocab_freq_dict = {}
+
+    WORD_2_INDEX = {"PAD": 0, "SOS": 1, "EOS": 2}#, "unk": 3}
+    INDEX_2_WORD = {0: "PAD", 1: "SOS", 2: "EOS"}#, 3:"unk"}
 
     def remove_low_freq_words(freq_dict, tokens):
         filtered_tokens = []
@@ -149,6 +151,7 @@ else:
     def read_data(data_dir):
         ignore_count = [0,0]
         data = []
+        unk_count = 0
         for fname in os.listdir(data_dir):
             fpath = os.path.join(data_dir, fname)
             with open(fpath) as f:
@@ -166,9 +169,19 @@ else:
                             continue
                         # TODO: ignore if too short or too long?
                         text, _ = remove_low_freq_words(freq_dict, text) 
-                        update_word_index(WORD_2_INDEX, INDEX_2_WORD, headline)
-                        update_word_index(WORD_2_INDEX, INDEX_2_WORD, text)
+                        for token in (headline + text):
+                            if token == 'unk':
+                                unk_count += 1
+                            elif token not in vocab_freq_dict.keys():
+                                vocab_freq_dict[token] = freq_dict[token]
+
                     data.append((headline, text))
+
+        # Now ready to build word indexes
+        vocab_freq_dict['unk'] = unk_count
+        sorted_words = sorted(vocab_freq_dict, key=vocab_freq_dict.get, reverse=True)
+        update_word_index(WORD_2_INDEX, INDEX_2_WORD, sorted_words)
+
         return data, ignore_count
     
 
@@ -256,8 +269,20 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
-def masked_cross_entropy(logits, target, length):
+def masked_adasoft(logits, target, lengths):
+    loss = 0
+    for i in range(logits.size(0)):
+        mask = (np.array(lengths) > i).astype(int)
+        logits_i = logits[i] * torch.tensor(mask, dtype=torch.float).unsqueeze(1).to(device)
+        targets_i = target[i] * torch.tensor(mask, dtype=torch.long).to(device)
+        asm_output = crit(logits_i, targets_i)
+        loss += asm_output.loss
 
+    loss /= logits.size(0)
+    return loss
+
+
+def masked_cross_entropy(logits, target, length):
     length = Variable(torch.LongTensor(length)).to(device)
     """
     Args:
@@ -289,7 +314,6 @@ def masked_cross_entropy(logits, target, length):
     losses = losses * mask.float()
     loss = losses.sum() / length.float().sum()
     return loss
-
 
 # # copy from model.py
 
@@ -353,33 +377,9 @@ class Attn(nn.Module):
             self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
 
     def forward(self, hidden, encoder_outputs):
-        max_len = encoder_outputs.size(0)
-        this_batch_size = encoder_outputs.size(1)
-
-        # Create variable to store attention energies
-        attn_energies = Variable(torch.zeros(this_batch_size, max_len)) # B x S
-
-        attn_energies = attn_energies.to(device)
-
-        # For each batch of encoder outputs
-        for b in range(this_batch_size):
-            # Calculate energy for each encoder output
-            for i in range(max_len):
-                attn_energies[b, i] = self.score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
-
+        attn_energies = torch.bmm(hidden.transpose(0,1), encoder_outputs.permute(1,2,0)).squeeze(1)
         # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
         return F.softmax(attn_energies, dim=1).unsqueeze(1)
-    
-    def score(self, hidden, encoder_output):
-        if self.method == 'dot':
-            energy =torch.dot(hidden.view(-1), encoder_output.view(-1))
-        elif self.method == 'general':
-            energy = self.attn(encoder_output)
-            energy = torch.dot(hidden.view(-1), energy.view(-1))
-        elif self.method == 'concat':
-            energy = self.attn(torch.cat((hidden, encoder_output), 1))
-            energy = torch.dot(self.v.view(-1), energy.view(-1))
-        return energy
 
 
 class DecoderRNN(nn.Module):
@@ -401,7 +401,7 @@ class DecoderRNN(nn.Module):
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.out = nn.Linear(hidden_size, 1024)
         
         # Choose attention model
         if attn_model != 'none':
@@ -480,8 +480,9 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
 
             # Choose top word from output
-            topv, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
+            ni = crit.predict(decoder_output)
+            # topv, topi = decoder_output.data.topk(1)
+            # ni = topi[0][0]
             if ni == EOS_token:
                 decoded_words.append('<EOS>')
                 break
@@ -560,7 +561,7 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
 
 
     max_target_length = max(target_lengths)
-    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size)).to(device)
+    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 1024)).to(device)
 
 
     # Run through decoder one time step at a time
@@ -573,11 +574,12 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
         decoder_input = target_batches[t] # Next input is current target
 
     # Loss calculation and backpropagation
-    loss = masked_cross_entropy(
-        all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
-        target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths
-    )
+    loss = masked_adasoft(all_decoder_outputs, target_batches, target_lengths)
+    # loss = masked_cross_entropy(
+    #     all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
+    #     target_batches.transpose(0, 1).contiguous(), # -> batch x seq
+    #     target_lengths
+    # )
     loss.backward()
     
     # Clip gradient norms
@@ -681,6 +683,7 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
+crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 

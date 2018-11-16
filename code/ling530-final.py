@@ -481,8 +481,9 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
 
             # Choose top word from output
-            topv, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
+            ni = crit.predict(decoder_output)
+            # topv, topi = decoder_output.data.topk(1)
+            # ni = topi[0][0]
             if ni == EOS_token:
                 decoded_words.append('<EOS>')
                 break
@@ -686,7 +687,7 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
-crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [100, 1000, 5000, 10000]).to(device)
+crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 

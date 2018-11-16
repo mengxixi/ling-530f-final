@@ -627,8 +627,8 @@ def random_batch(batch_size, data):
     # Choose random pairs
     for i in range(0, end_index, batch_size):
         pairs = data[i:i+batch_size]
-        input_seqs = [indexes_from_sentence( pair[0], isHeadline=False) for pair in pairs]
-        target_seqs = [indexes_from_sentence(pair[1], isHeadline=True) for pair in pairs]
+        input_seqs = [indexes_from_sentence( pair[1], isHeadline=False) for pair in pairs]
+        target_seqs = [indexes_from_sentence(pair[0], isHeadline=True) for pair in pairs]
         seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
         input_seqs, target_seqs = zip(*seq_pairs)
     

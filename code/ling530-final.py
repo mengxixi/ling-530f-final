@@ -369,18 +369,11 @@ class EncoderRNN(nn.Module):
 
 
 class Attn(nn.Module):
-    def __init__(self, method, hidden_size):
+    def __init__(self, hidden_size):
         super(Attn, self).__init__()
         
-        self.method = method
         self.hidden_size = hidden_size
-        
-        if self.method == 'general':
-            self.attn = nn.Linear(self.hidden_size, hidden_size)
 
-        elif self.method == 'concat':
-            self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
-            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
 
     def forward(self, hidden, encoder_outputs):
         attn_energies = torch.bmm(hidden.transpose(0,1), encoder_outputs.permute(1,2,0)).squeeze(1)
@@ -389,11 +382,10 @@ class Attn(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, attn_model, hidden_size, output_size, pretrained_embeddings, n_layers=1, dropout=0.1):
+    def __init__(self, hidden_size, output_size, pretrained_embeddings, n_layers=1, dropout=0.1):
         super(DecoderRNN, self).__init__()
 
         # Keep for reference
-        self.attn_model = attn_model
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
@@ -410,10 +402,8 @@ class DecoderRNN(nn.Module):
         self.out = nn.Linear(hidden_size, 1024)
         
         # Choose attention model
-        if attn_model != 'none':
-            self.attn = Attn(attn_model, hidden_size)
-        else:
-            self.attn = None
+        self.attn = Attn(hidden_size)
+
 
     def forward(self, input_seq, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
@@ -426,27 +416,24 @@ class DecoderRNN(nn.Module):
 
         # Get current hidden state from input word and last hidden state
         rnn_output, hidden = self.gru(embedded, last_hidden)
+
+        # Calculate attention from current RNN state and all encoder outputs;
+        # apply to encoder outputs to get weighted average
+        attn_weights = self.attn(rnn_output, encoder_outputs)
+        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x S=1 x N
+
+        # Attentional vector using the RNN hidden state and context vector
+        # concatenated together (Luong eq. 5)
         rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
-        if self.attn:
-            # Calculate attention from current RNN state and all encoder outputs;
-            # apply to encoder outputs to get weighted average
-            attn_weights = self.attn(rnn_output, encoder_outputs)
-            context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x S=1 x N
+        context = context.squeeze(1)       # B x S=1 x N -> B x N
+        concat_input = torch.cat((rnn_output, context), 1)
+        concat_output = torch.tanh(self.concat(concat_input))
 
-            # Attentional vector using the RNN hidden state and context vector
-            # concatenated together (Luong eq. 5)
-        
-            context = context.squeeze(1)       # B x S=1 x N -> B x N
-            concat_input = torch.cat((rnn_output, context), 1)
-            concat_output = torch.tanh(self.concat(concat_input))
+        # Finally predict next token (Luong eq. 6, without softmax)
+        output = self.out(concat_output)
 
-            # Finally predict next token (Luong eq. 6, without softmax)
-            output = self.out(concat_output)
-
-            # Return final output, hidden state, and attention weights (for visualization)
-            return output, hidden, attn_weights
-        output = self.out(rnn_output)
-        return output, hidden, None
+        # Return final output, hidden state, and attention weights (for visualization)
+        return output, hidden, attn_weights
 
 
 # ## copy from eval.py
@@ -665,7 +652,6 @@ def random_batch(batch_size, data):
 
 
 
-attn_model = 'none'
 hidden_size = 300
 n_layers = 2
 dropout = 0.5
@@ -681,7 +667,7 @@ weight_decay = 1e-4
 
 # Initialize models
 encoder = EncoderRNN(VOCAB_SIZE, hidden_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
-decoder = DecoderRNN(attn_model, hidden_size, VOCAB_SIZE, pretrained_embeddings, n_layers, dropout=dropout).to(device)
+decoder = DecoderRNN(hidden_size, VOCAB_SIZE, pretrained_embeddings, n_layers, dropout=dropout).to(device)
 
 
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)

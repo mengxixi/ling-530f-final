@@ -267,6 +267,19 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
+def masked_adasoft(logits, target, lengths):
+    loss = 0
+    for i in range(logits.size(0)):
+        mask = (np.array(lengths) > i).astype(int)
+        logits_i = logits[i] * torch.tensor(mask, dtype=torch.float).unsqueeze(1).to(device)
+        targets_i = target[i] * torch.tensor(mask, dtype=torch.long).to(device)
+        asm_output = crit(logits_i, targets_i)
+        loss += asm_output.loss
+
+    loss /= logits.size(0)
+    return loss
+
+
 def masked_cross_entropy(logits, target, length):
     length = Variable(torch.LongTensor(length)).to(device)
     """
@@ -564,7 +577,6 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
     all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 1024)).to(device)
 
 
-    loss = 0
     # Run through decoder one time step at a time
     for t in range(max_target_length):
         decoder_output, decoder_hidden, decoder_attn = decoder(
@@ -572,18 +584,15 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
         )
 
         all_decoder_outputs[t] = decoder_output
-        asm_loss = crit(decoder_output, target_batches[t])
-        loss += asm_loss.loss
         decoder_input = target_batches[t] # Next input is current target
 
     # Loss calculation and backpropagation
-
+    loss = masked_adasoft(all_decoder_outputs, target_batches, target_lengths)
     # loss = masked_cross_entropy(
     #     all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
     #     target_batches.transpose(0, 1).contiguous(), # -> batch x seq
     #     target_lengths
     # )
-    loss /= max_target_length
     loss.backward()
     
     # Clip gradient norms
@@ -642,8 +651,8 @@ def random_batch(batch_size, data):
     # Choose random pairs
     for i in range(0, end_index, batch_size):
         pairs = data[i:i+batch_size]
-        input_seqs = [indexes_from_sentence( pair[0]) for pair in pairs]
-        target_seqs = [indexes_from_sentence(pair[1]) for pair in pairs]
+        input_seqs = [indexes_from_sentence( pair[1]) for pair in pairs]
+        target_seqs = [indexes_from_sentence(pair[0]) for pair in pairs]
         seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
         input_seqs, target_seqs = zip(*seq_pairs)
     

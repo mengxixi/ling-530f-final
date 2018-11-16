@@ -471,7 +471,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
             )
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
-
+            
             # Choose top word from output
             ni = crit.predict(decoder_output)
             # topv, topi = decoder_output.data.topk(1)
@@ -501,8 +501,7 @@ def evaluate_randomly(encoder, decoder, pairs):
         print('=', ' '.join(headline))
 
     #output_words, attentions = evaluate(headline, encoder, decoder)
-    output_words = evaluate(headline, encoder, decoder)
-    output_words = output_words
+    output_words = evaluate(text, encoder, decoder)
     output_sentence = ' '.join(output_words)
     
     print('<', output_sentence)
@@ -608,8 +607,8 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
             running_loss += loss
         
 
-            if batch_ind % 5 == 0:
-                avg_running_loss = running_loss / 5
+            if batch_ind % 25 == 0:
+                avg_running_loss = running_loss / 25
                 running_loss = 0
                 logging.info("Iteration: %d running loss: %f", batch_ind, avg_running_loss)
             
@@ -648,6 +647,11 @@ def random_batch(batch_size, data):
         input_var = input_var.to(device)
         target_var = target_var.to(device)
         yield input_var, input_lengths, target_var, target_lengths
+
+def test(dev_data,encoder,decoder):
+    input_seqs = [indexes_from_sentence( pair[1], isHeadline=False) for pair in dev_data]
+    true_headlines = [indexes_from_sentence(pair[0], isHeadline=True) for pair in dev_data]
+    pred_headlines = [evaluate(text, encoder, decoder) for text in input_seqs] 
 
 
 

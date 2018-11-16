@@ -45,7 +45,7 @@ UNKNOWN_TOKEN = 'unk'
 MIN_LENGTH = 3
 MAX_LENGTH = 25
 MAX_HEADLINE_LENGTH = 20
-MAX_TEXT_LENGTH = 35
+MAX_TEXT_LENGTH = 40
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
@@ -87,7 +87,7 @@ else:
         else:
             dst = os.path.join(DEV_DIR, fname)
         shutil.copyfile(src, dst)  
-    ''' 
+    '''
 
     # Count the frequency of each word appears in the dataset
 
@@ -243,10 +243,12 @@ for i in range(VOCAB_SIZE):
 
 
 # Return a list of indexes, one for each word in the sentence, plus EOS
-def indexes_from_sentence(tokens):
+def indexes_from_sentence(tokens,isHeadline):
     default_idx = WORD_2_INDEX[UNKNOWN_TOKEN]
     idxs = [WORD_2_INDEX.get(word, default_idx) for word in tokens]
-    return idxs + [EOS_token]
+    if isHeadline:
+        idxs = idxs + [EOS_token]
+    return idxs
 
 # Pad a sentence with the PAD symbol
 def pad_seq(seq, max_length):
@@ -440,7 +442,7 @@ class DecoderRNN(nn.Module):
 
 def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
     with torch.no_grad(): 
-        input_seqs = [indexes_from_sentence( input_seq)]
+        input_seqs = [indexes_from_sentence( input_seq, isHeadline = False)]
         input_lengths = [len(input_seq) for input_seq in input_seqs]
         input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1).to(device)
             
@@ -627,8 +629,8 @@ def random_batch(batch_size, data):
     # Choose random pairs
     for i in range(0, end_index, batch_size):
         pairs = data[i:i+batch_size]
-        input_seqs = [indexes_from_sentence( pair[1]) for pair in pairs]
-        target_seqs = [indexes_from_sentence(pair[0]) for pair in pairs]
+        input_seqs = [indexes_from_sentence( pair[1], isHeadline=False) for pair in pairs]
+        target_seqs = [indexes_from_sentence(pair[0], isHeadline=True) for pair in pairs]
         seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
         input_seqs, target_seqs = zip(*seq_pairs)
     

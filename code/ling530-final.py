@@ -300,7 +300,6 @@ def masked_cross_entropy(logits, target, length):
     loss = losses.sum() / length.float().sum()
     return loss
 
-
 # # copy from model.py
 
 # In[ ]:
@@ -408,7 +407,7 @@ class DecoderRNN(nn.Module):
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.out = nn.Linear(hidden_size, 1024)
         
         # Choose attention model
         if attn_model != 'none':
@@ -561,9 +560,10 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
 
 
     max_target_length = max(target_lengths)
-    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size)).to(device)
+    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 1024)).to(device)
 
 
+    loss = 0
     # Run through decoder one time step at a time
     for t in range(max_target_length):
         decoder_output, decoder_hidden, decoder_attn = decoder(
@@ -571,16 +571,18 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
         )
 
         all_decoder_outputs[t] = decoder_output
+        asm_loss = crit(decoder_output, target_batches[t])
+        loss += asm_loss.loss
         decoder_input = target_batches[t] # Next input is current target
 
     # Loss calculation and backpropagation
 
-    loss = masked_cross_entropy(
-        all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
-        target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths
-    )
-    # loss = nn.AdaptiveLogSoftmaxWithLoss()
+    # loss = masked_cross_entropy(
+    #     all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
+    #     target_batches.transpose(0, 1).contiguous(), # -> batch x seq
+    #     target_lengths
+    # )
+    loss /= max_target_length
     loss.backward()
     
     # Clip gradient norms
@@ -684,6 +686,7 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
+crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [100, 1000, 5000, 10000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 

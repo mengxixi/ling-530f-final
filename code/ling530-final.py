@@ -344,7 +344,12 @@ def masked_cross_entropy(logits, target, length):
 # # copy from model.py
 
 # In[ ]:
-
+def param_init(params):
+    for name, param in params:
+            if 'bias' in name:
+                 nn.init.constant_(param, 0.0)
+            elif 'weight' in name:
+                nn.init.xavier_normal(param)
 
 class EncoderRNN(nn.Module):
     
@@ -368,6 +373,7 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding(input_size, hidden_size).from_pretrained(glove_embeddings, freeze=True)
         
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
+        param_init(self.gru.named_parameters())
         
     def forward(self, input_seqs, input_lengths, hidden=None):
         embedded = self.embedding(input_seqs)
@@ -423,7 +429,9 @@ class DecoderRNN(nn.Module):
         
         # Choose attention model
         self.attn = Attn(hidden_size)
-
+        param_init(self.gru.named_parameters())
+        param_init(self.concat.named_parameters())
+        param_init(self.out.named_parameters())
 
     def forward(self, input_seq, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
@@ -691,7 +699,7 @@ batch_size = 32
 clip = 50.0
 learning_rate = 1e-3
 decoder_learning_ratio = 5.0
-n_epochs = 0
+n_epochs = 1
 weight_decay = 1e-4
 
 # Initialize models

@@ -27,14 +27,26 @@ torch.manual_seed(3)
 torch.cuda.manual_seed(4)
 
 # define directory structure needed for data processing
+TMP_DIR = os.path.join("..", "data", "tmp")
 DATA_DIR = os.path.join("..", "data", "gigawordunsplit")
 TRAIN_DIR = os.path.join("..", "data", "gigaword","train")
 DEV_DIR = os.path.join("..", "data", "gigaword","dev")
 CHECKPOINT_FNAME = "gigaword.ckpt"
+GOLD_DIR = os.path.join(TMP_DIR, "gold")
+SYSTEM_DIR = os.path.join(TMP_DIR, "system")
+TRUE_HEADLINE_FNAME = 'gold.A.0.txt'
+PRED_HEADLINE_FNAME = 'system.0.txt'
 
-for d in [DATA_DIR, TRAIN_DIR, DEV_DIR]:
+for d in [DATA_DIR, TRAIN_DIR, DEV_DIR, TMP_DIR, GOLD_DIR, SYSTEM_DIR]:
     if not os.path.exists(d):
         os.makedirs(d)
+
+from pyrouge import Rouge155
+r = Rouge155()
+r.system_dir = SYSTEM_DIR
+r.model_dir = GOLD_DIR
+r.system_filename_pattern = 'system.(\d+).txt'
+r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 
 PAD_token = 0
 SOS_token = 1
@@ -43,9 +55,9 @@ EOS_token = 2
 UNKNOWN_TOKEN = 'unk' 
 
 MIN_LENGTH = 3
-MAX_LENGTH = 25
-MAX_HEADLINE_LENGTH = 20
-MAX_TEXT_LENGTH = 40
+MAX_LENGTH = 35
+MAX_HEADLINE_LENGTH = 30
+MAX_TEXT_LENGTH = 50
 MIN_TEXT_LENGTH = 5
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
@@ -54,6 +66,13 @@ EMBEDDING_DIM = 300
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
+def write_headlines_to_file(fpath, headlines):
+    
+    logging.info("Writing %d headlines to file", len(headlines))
+    with open(fpath, 'w+') as f:
+        for h in headlines:
+            f.write(' '.join(h) + '\n')
 
 # # Preprocess
 
@@ -188,7 +207,7 @@ else:
         update_word_index(WORD_2_INDEX, INDEX_2_WORD, sorted_words)
 
         return data, ignore_count
-    
+        
 
     logging.info("Load TRAIN data and remove low frequency tokens...")
     train_data, ignore_count = read_data(TRAIN_DIR)
@@ -206,6 +225,9 @@ else:
     for i, item in enumerate([train_data, dev_data, WORD_2_INDEX, INDEX_2_WORD]):
         with open(os.path.join(TMP, pkl_names[i]+".pkl"), 'wb') as handle:
             pickle.dump(item, handle, protocol=pickle.HIGHEST_PROTOCOL)
+dev_text = [text for (_, text) in dev_data[:1000]]
+dev_true_headline = [headline for (headline,_) in dev_data[:1000]]
+write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), dev_true_headline)
 
 assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
 VOCAB_SIZE = len(WORD_2_INDEX)
@@ -648,10 +670,15 @@ def random_batch(batch_size, data):
         target_var = target_var.to(device)
         yield input_var, input_lengths, target_var, target_lengths
 
-def test(dev_data,encoder,decoder):
-    input_seqs = [indexes_from_sentence( pair[1], isHeadline=False) for pair in dev_data]
-    true_headlines = [indexes_from_sentence(pair[0], isHeadline=True) for pair in dev_data]
-    pred_headlines = [evaluate(text, encoder, decoder) for text in input_seqs] 
+def test(dev_text, encoder,decoder):
+    logging.info("Start testing")
+    pred_headlines = [evaluate(text, encoder, decoder) for text in dev_text if len(text)>0]
+    logging.info("%d text have length equal 0", len(dev_text)-len(pred_headlines))
+    write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
+    output = r.convert_and_evaluate()
+    print(output)
+    
+    
 
 
 
@@ -666,7 +693,7 @@ batch_size = 32
 clip = 50.0
 learning_rate = 1e-3
 decoder_learning_ratio = 5.0
-n_epochs = 4000000
+n_epochs = 0
 weight_decay = 1e-4
 
 # Initialize models
@@ -683,7 +710,7 @@ crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
-
+test(dev_text, encoder, decoder)
 
 
 

@@ -94,11 +94,10 @@ if os.path.exists('../data/tmp/train_data.pkl'):
     
 else:
     logging.info("Splitting data into train and dev...")
-    '''
     fnames = sorted(os.listdir(DATA_DIR))
     random.shuffle(fnames)
 
-    train_end = int(len(fnames)*0.8)
+    train_end = int(len(fnames)-1000)
 
     for i, fname in enumerate(fnames):
         src = os.path.join(DATA_DIR, fname)
@@ -107,7 +106,6 @@ else:
         else:
             dst = os.path.join(DEV_DIR, fname)
         shutil.copyfile(src, dst)  
-    '''
 
     # Count the frequency of each word appears in the dataset
 
@@ -225,8 +223,8 @@ else:
     for i, item in enumerate([train_data, dev_data, WORD_2_INDEX, INDEX_2_WORD]):
         with open(os.path.join(TMP, pkl_names[i]+".pkl"), 'wb') as handle:
             pickle.dump(item, handle, protocol=pickle.HIGHEST_PROTOCOL)
-dev_text = [text for (_, text) in dev_data[:1000]]
-dev_true_headline = [headline for (headline,_) in dev_data[:1000]]
+dev_text = [text for (_, text) in dev_data]
+dev_true_headline = [headline for (headline,_) in dev_data]
 write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), dev_true_headline)
 
 assert len(WORD_2_INDEX) == len(INDEX_2_WORD)

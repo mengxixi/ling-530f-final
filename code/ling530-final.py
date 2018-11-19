@@ -585,7 +585,7 @@ def train_batch(input_batches, input_lengths, input_embeds, target_batches, targ
     encoder_outputs, encoder_hidden = encoder(input_embeds, input_lengths, None)
     
     # Prepare input and output variables
-    decoder_input = Variable(SOS_emb*batch_size).to(device)
+    decoder_input = Variable(SOS_emb.repeat(batch_size,1)).to(device)
     decoder_hidden = torch.cat((encoder_hidden[0], encoder_hidden[1]),1)
     for i in range(1, encoder.n_layers):
         decoder_hidden = torch.stack((decoder_hidden,torch.cat((encoder_hidden[i*2],encoder_hidden[i*2+1]),1)))
@@ -673,11 +673,11 @@ def random_batch(batch_size, data):
 
         input_sents = [pair[1] for pair in pairs]
         char_ids = batch_to_ids(input_sents)
-        input_embeds = elmo(char_ids)["elmo_representations"]
+        input_embeds = elmo(char_ids)["elmo_representations"][0]
 
         target_sents = [pair[0] for pair in pairs]
         char_ids = batch_to_ids(target_sents)
-        target_embeds = elmo(char_ids)["elmo_representations"]
+        target_embeds = elmo(char_ids)["elmo_representations"][0]
 
         input_seqs = [indexes_from_sentence( pair[1], isHeadline=False) for pair in pairs]
         target_seqs = [indexes_from_sentence(pair[0], isHeadline=True) for pair in pairs]

@@ -40,14 +40,14 @@ PRED_HEADLINE_FNAME = 'system.0.txt'
 for d in [DATA_DIR, TRAIN_DIR, DEV_DIR, TMP_DIR, GOLD_DIR, SYSTEM_DIR]:
     if not os.path.exists(d):
         os.makedirs(d)
-
+'''
 from pyrouge import Rouge155
 r = Rouge155()
 r.system_dir = SYSTEM_DIR
 r.model_dir = GOLD_DIR
 r.system_filename_pattern = 'system.(\d+).txt'
 r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
-
+'''
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
@@ -349,7 +349,7 @@ def param_init(params):
             if 'bias' in name:
                  nn.init.constant_(param, 0.0)
             elif 'weight' in name:
-                nn.init.xavier_normal(param)
+                nn.init.xavier_normal_(param)
 
 class EncoderRNN(nn.Module):
     
@@ -360,7 +360,7 @@ class EncoderRNN(nn.Module):
     n_layers: number of hidden layers in GRU
     
     """ 
-    def __init__(self, input_size, hidden_size, pretrained_embeddings, n_layers=1, dropout=0.1):
+    def __init__(self, input_size, hidden_size, embed_size,pretrained_embeddings, n_layers=1, dropout=0.1):
         
         super(EncoderRNN, self).__init__()
         
@@ -368,11 +368,12 @@ class EncoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.n_layers = n_layers
         self.dropout = dropout
+        self.embed_size = embed_size
         
         glove_embeddings = torch.tensor(pretrained_embeddings)
-        self.embedding = nn.Embedding(input_size, hidden_size).from_pretrained(glove_embeddings, freeze=True)
+        self.embedding = nn.Embedding(input_size, embed_size).from_pretrained(glove_embeddings, freeze=True)
         
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
+        self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         param_init(self.gru.named_parameters())
         
     def forward(self, input_seqs, input_lengths, hidden=None):
@@ -388,7 +389,7 @@ class EncoderRNN(nn.Module):
         outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) 
         
         # Sum bidirectional outputs
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] 
+        #outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] 
         
         return outputs, hidden
 
@@ -408,7 +409,7 @@ class Attn(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, pretrained_embeddings, n_layers=1, dropout=0.1):
+    def __init__(self, hidden_size, output_size, embed_size, pretrained_embeddings, n_layers=1, dropout=0.1):
         super(DecoderRNN, self).__init__()
 
         # Keep for reference
@@ -416,6 +417,7 @@ class DecoderRNN(nn.Module):
         self.output_size = output_size
         self.n_layers = n_layers
         self.dropout = dropout
+        self.embed_size = embed_size
 
         # Define layers
 
@@ -423,7 +425,7 @@ class DecoderRNN(nn.Module):
         self.embedding = nn.Embedding(output_size, hidden_size).                from_pretrained(glove_embeddings, freeze=True)
 
         self.embedding_dropout = nn.Dropout(dropout)
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
+        self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout)
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
         self.out = nn.Linear(hidden_size, 1024)
         
@@ -440,7 +442,7 @@ class DecoderRNN(nn.Module):
         batch_size = input_seq.size(0)
         embedded = self.embedding(input_seq)
         embedded = self.embedding_dropout(embedded)
-        embedded = embedded.view(1, batch_size, self.hidden_size) # S=1 x B x N
+        embedded = embedded.view(1, batch_size, self.embed_size) # S=1 x B x N
 
         # Get current hidden state from input word and last hidden state
         rnn_output, hidden = self.gru(embedded, last_hidden)
@@ -483,10 +485,12 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
         encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
 
         # Create starting vectors for decoder
-        decoder_input = Variable(torch.LongTensor([SOS_token])) # SOS
-        decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
-        
-        decoder_input = decoder_input.to(device)
+        decoder_input = Variable(torch.LongTensor([SOS_token])).to(device) # SOS
+        decoder_hidden = torch.cat((encoder_hidden[0], encoder_hidden[1]),1)
+        for i in range(1, encoder.n_layers):
+            decoder_hidden = torch.stack((decoder_hidden,torch.cat((encoder_hidden[i*2],encoder_hidden[i*2+1]),1)))
+        decoder_hidden = decoder_hidden.to(device)
+      
 
         # Store output words and attention states
         decoded_words = []
@@ -577,8 +581,10 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
     
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size)).to(device)
-    decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
-
+    decoder_hidden = torch.cat((encoder_hidden[0], encoder_hidden[1]),1)
+    for i in range(1, encoder.n_layers):
+        decoder_hidden = torch.stack((decoder_hidden,torch.cat((encoder_hidden[i*2],encoder_hidden[i*2+1]),1)))
+    decoder_hidden = decoder_hidden.to(device)
 
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 1024)).to(device)
@@ -675,7 +681,7 @@ def random_batch(batch_size, data):
         input_var = input_var.to(device)
         target_var = target_var.to(device)
         yield input_var, input_lengths, target_var, target_lengths
-
+'''
 def test(dev_text, encoder,decoder):
     logging.info("Start testing")
     pred_headlines = [evaluate(text, encoder, decoder) for text in dev_text if len(text)>0]
@@ -683,17 +689,18 @@ def test(dev_text, encoder,decoder):
     write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
     output = r.convert_and_evaluate()
     print(output)
+ '''   
     
-    
 
 
 
 
-hidden_size = 300
+hidden_size = 200
 n_layers = 2
 dropout = 0.5
 
 batch_size = 32
+embed_size = 300
 
 # Configure training/optimization
 clip = 50.0
@@ -703,8 +710,8 @@ n_epochs = 1
 weight_decay = 1e-4
 
 # Initialize models
-encoder = EncoderRNN(VOCAB_SIZE, hidden_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
-decoder = DecoderRNN(hidden_size, VOCAB_SIZE, pretrained_embeddings, n_layers, dropout=dropout).to(device)
+encoder = EncoderRNN(VOCAB_SIZE, hidden_size, embed_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
+decoder = DecoderRNN(2*hidden_size, VOCAB_SIZE, embed_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
 
 
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -716,7 +723,7 @@ crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
-test(dev_text, encoder, decoder)
+#test(dev_text, encoder, decoder)
 
 
 

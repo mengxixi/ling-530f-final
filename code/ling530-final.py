@@ -40,14 +40,14 @@ PRED_HEADLINE_FNAME = 'system.0.txt'
 for d in [DATA_DIR, TRAIN_DIR, DEV_DIR, TMP_DIR, GOLD_DIR, SYSTEM_DIR]:
     if not os.path.exists(d):
         os.makedirs(d)
-'''
+
 from pyrouge import Rouge155
 r = Rouge155()
 r.system_dir = SYSTEM_DIR
 r.model_dir = GOLD_DIR
 r.system_filename_pattern = 'system.(\d+).txt'
 r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
-'''
+
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
@@ -96,8 +96,8 @@ else:
     logging.info("Splitting data into train and dev...")
     fnames = sorted(os.listdir(DATA_DIR))
     random.shuffle(fnames)
-
-    train_end = int(len(fnames)-1000)
+    '''
+    train_end = int(len(fnames)*0.8)
 
     for i, fname in enumerate(fnames):
         src = os.path.join(DATA_DIR, fname)
@@ -106,7 +106,7 @@ else:
         else:
             dst = os.path.join(DEV_DIR, fname)
         shutil.copyfile(src, dst)  
-
+'''
     # Count the frequency of each word appears in the dataset
 
     # In[ ]:
@@ -223,10 +223,6 @@ else:
     for i, item in enumerate([train_data, dev_data, WORD_2_INDEX, INDEX_2_WORD]):
         with open(os.path.join(TMP, pkl_names[i]+".pkl"), 'wb') as handle:
             pickle.dump(item, handle, protocol=pickle.HIGHEST_PROTOCOL)
-dev_text = [text for (_, text) in dev_data]
-dev_true_headline = [headline for (headline,_) in dev_data]
-write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), dev_true_headline)
-
 assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
 VOCAB_SIZE = len(WORD_2_INDEX)
 
@@ -597,8 +593,7 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
         )
 
         all_decoder_outputs[t] = decoder_output
-        decoder_input = target_batches[t] # Next input is current target
-
+        decoder_input = target_batches[t] # Next input is current target 
     # Loss calculation and backpropagation
     loss = masked_adasoft(all_decoder_outputs, target_batches, target_lengths)
     # loss = masked_cross_entropy(
@@ -646,7 +641,7 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
                 running_loss = 0
                 logging.info("Iteration: %d running loss: %f", batch_ind, avg_running_loss)
             
-            if batch_ind % 50 == 0:
+            if batch_ind % 100 == 0:
                 logging.info("Iteration: %d, evaluating", batch_ind)
                 evaluate_randomly(encoder, decoder, pairs)
 
@@ -681,15 +676,23 @@ def random_batch(batch_size, data):
         input_var = input_var.to(device)
         target_var = target_var.to(device)
         yield input_var, input_lengths, target_var, target_lengths
-'''
-def test(dev_text, encoder,decoder):
+
+def test(dev_data, encoder,decoder):
     logging.info("Start testing")
-    pred_headlines = [evaluate(text, encoder, decoder) for text in dev_text if len(text)>0]
-    logging.info("%d text have length equal 0", len(dev_text)-len(pred_headlines))
+    dev_data = dev_data[:1000]
+    dev_data = [data for data in dev_data if len(data[1])>0]
+    logging.info("%d text have length equal 0", 1000 - len(dev_data))
+    
+    dev_text = [text for (_, text) in dev_data]
+    dev_true_headline = [headline for (headline,_) in dev_data]
+    write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), dev_true_headline)
+
+    pred_headlines = [evaluate(text, encoder, decoder) for text in dev_text]
+    assert len(dev_true_headline) == len(pred_headlines)
     write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
     output = r.convert_and_evaluate()
     print(output)
- '''   
+ 
     
 
 
@@ -723,7 +726,7 @@ crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
-#test(dev_text, encoder, decoder)
+test(dev_data, encoder, decoder)
 
 
 

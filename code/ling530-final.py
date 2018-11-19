@@ -671,17 +671,18 @@ def random_batch(batch_size, data):
     for i in range(0, end_index, batch_size):
         pairs = data[i:i+batch_size]
 
-        input_sents = [pair[1] for pair in pairs]
-        char_ids = batch_to_ids(input_sents)
-        input_embeds = elmo(char_ids)["elmo_representations"][0]
-
-        target_sents = [pair[0] for pair in pairs]
-        char_ids = batch_to_ids(target_sents)
-        target_embeds = elmo(char_ids)["elmo_representations"][0]
-
         input_seqs = [indexes_from_sentence( pair[1], isHeadline=False) for pair in pairs]
         target_seqs = [indexes_from_sentence(pair[0], isHeadline=True) for pair in pairs]
 
+        input_sents = [pair[1] for pair in pairs]
+        char_ids = batch_to_ids(input_sents)
+        input_embeds = elmo(char_ids)["elmo_representations"][0]
+      
+
+        target_sents = [pair[0] +['</S>']for pair in pairs]
+        char_ids = batch_to_ids(target_sents)
+        target_embeds = elmo(char_ids)["elmo_representations"][0]
+        
         seq_pairs = sorted(zip(input_seqs, target_seqs, input_embeds, target_embeds), key=lambda p: len(p[0]), reverse=True)
         input_seqs, target_seqs, input_embeds, target_embeds = zip(*seq_pairs)
 
@@ -734,7 +735,7 @@ weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_51
 elmo = Elmo(options_file, weight_file, 1, dropout=0)
 
 SOS_emb = elmo(batch_to_ids([['<S>']]))["elmo_representations"][0].view(EMBEDDING_DIM)
-
+EOS_emb = elmo(batch_to_ids([['</S>']]))["elmo_representations"][0].view(EMBEDDING_DIM)
 # Initialize models
 encoder = EncoderRNN(VOCAB_SIZE, hidden_size, EMBEDDING_DIM, pretrained_embeddings, n_layers, dropout=dropout).to(device)
 decoder = DecoderRNN(2*hidden_size, VOCAB_SIZE, EMBEDDING_DIM, pretrained_embeddings, n_layers, dropout=dropout).to(device)

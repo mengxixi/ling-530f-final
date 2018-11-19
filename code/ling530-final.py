@@ -95,11 +95,12 @@ if os.path.exists('../data/tmp/train_data.pkl'):
 
     
 else:
+    '''
     logging.info("Splitting data into train and dev...")
     fnames = sorted(os.listdir(DATA_DIR))
     random.shuffle(fnames)
 
-    train_end = int(len(fnames)-1000)
+    train_end = int(len(fnames)*0.8)
 
     for i, fname in enumerate(fnames):
         src = os.path.join(DATA_DIR, fname)
@@ -108,7 +109,7 @@ else:
         else:
             dst = os.path.join(DEV_DIR, fname)
         shutil.copyfile(src, dst)  
-
+'''
     # Count the frequency of each word appears in the dataset
 
     # In[ ]:
@@ -478,24 +479,32 @@ class DecoderRNN(nn.Module):
 
 def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
     with torch.no_grad(): 
-        input_seqs = [indexes_from_sentence( input_seq, isHeadline = False)]
-        input_lengths = [len(input_seq) for input_seq in input_seqs]
-        input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1).to(device)
-            
+      
+        char_ids = batch_to_ids([input_seq])
+        input_embeds = elmo(char_ids)["elmo_representations"][0]
+    
+        input_lengths = [len(input_seq)]
+        print(input_lengths)
+        input_embeds = Variable(input_embeds).transpose(0, 1).to(device)
+        
         # Set to not-training mode to disable dropout
         encoder.train(False)
         decoder.train(False)
         
         # Run through encoder
-        encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
+        encoder_outputs, encoder_hidden = encoder(input_embeds, input_lengths, None)
 
         # Create starting vectors for decoder
-        decoder_input = Variable(torch.LongTensor([SOS_token])).to(device) # SOS
+        char_ids = batch_to_ids([['<S>']])
+        input_embeds = elmo(char_ids)["elmo_representations"][0]
+      
+        decoder_input = Variable(input_embeds).transpose(0, 1).to(device) # SOS
         decoder_hidden = torch.cat((encoder_hidden[0], encoder_hidden[1]),1)
         for i in range(1, encoder.n_layers):
             decoder_hidden = torch.stack((decoder_hidden,torch.cat((encoder_hidden[i*2],encoder_hidden[i*2+1]),1)))
         decoder_hidden = decoder_hidden.to(device)
-      
+        print(decoder_hidden.size())
+        print(decoder_input.size())
 
         # Store output words and attention states
         decoded_words = []
@@ -520,15 +529,16 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
                 decoded_words.append(INDEX_2_WORD[int(ni)])
                 
             # Next input is chosen word
-            decoder_input = Variable(torch.LongTensor([ni]))
-            decoder_input = decoder_input.to(device)
+            char_ids = batch_to_ids([[INDEX_2_WORD[int(ni)]]])
+ 
+            input_embeds = elmo(char_ids)["elmo_representations"][0]
+            decoder_input = Variable(input_embeds).transpose(0, 1).to(device)
 
         # Set back to training mode
         encoder.train(True)
         decoder.train(True)
         
         return decoded_words#, decoder_attentions[:di+1, :len(encoder_outputs)]
-
 def evaluate_randomly(encoder, decoder, pairs):
     article = random.choice(pairs)
     headline = article[0]
@@ -682,7 +692,7 @@ def random_batch(batch_size, data):
         target_sents = [pair[0] +['</S>']for pair in pairs]
         char_ids = batch_to_ids(target_sents)
         target_embeds = elmo(char_ids)["elmo_representations"][0]
-        
+
         seq_pairs = sorted(zip(input_seqs, target_seqs, input_embeds, target_embeds), key=lambda p: len(p[0]), reverse=True)
         input_seqs, target_seqs, input_embeds, target_embeds = zip(*seq_pairs)
 

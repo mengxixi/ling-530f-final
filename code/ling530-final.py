@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+from allennlp.modules.elmo import Elmo, batch_to_ids
 
 
 # logging configurations
@@ -41,12 +42,12 @@ for d in [DATA_DIR, TRAIN_DIR, DEV_DIR, TMP_DIR, GOLD_DIR, SYSTEM_DIR]:
     if not os.path.exists(d):
         os.makedirs(d)
 
-from pyrouge import Rouge155
-r = Rouge155()
-r.system_dir = SYSTEM_DIR
-r.model_dir = GOLD_DIR
-r.system_filename_pattern = 'system.(\d+).txt'
-r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
+# from pyrouge import Rouge155
+# r = Rouge155()
+# r.system_dir = SYSTEM_DIR
+# r.model_dir = GOLD_DIR
+# r.system_filename_pattern = 'system.(\d+).txt'
+# r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 
 PAD_token = 0
 SOS_token = 1
@@ -62,7 +63,7 @@ MIN_TEXT_LENGTH = 5
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
-EMBEDDING_DIM = 300
+EMBEDDING_DIM = 256
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -228,25 +229,25 @@ VOCAB_SIZE = len(WORD_2_INDEX)
 
 
 
-class GloVe():
-    def __init__(self, path, dim):
-        self.dim = dim
-        self.word_embedding_dict = {}
-        with open(path) as f:
-            for line in f:
-                values = line.split()
-                embedding = values[-dim:]
-                word = ''.join(values[:-dim])
-                self.word_embedding_dict[word] = np.asarray(embedding, dtype=np.float32)
+# class GloVe():
+#     def __init__(self, path, dim):
+#         self.dim = dim
+#         self.word_embedding_dict = {}
+#         with open(path) as f:
+#             for line in f:
+#                 values = line.split()
+#                 embedding = values[-dim:]
+#                 word = ''.join(values[:-dim])
+#                 self.word_embedding_dict[word] = np.asarray(embedding, dtype=np.float32)
     
-    def get_word_vector(self, word):
-        if word not in self.word_embedding_dict.keys():
-            embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
-            self.word_embedding_dict[word] = embedding
-            return embedding
-        else:
-            return self.word_embedding_dict[word]
-glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.300d.txt'), dim=300)
+#     def get_word_vector(self, word):
+#         if word not in self.word_embedding_dict.keys():
+#             embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
+#             self.word_embedding_dict[word] = embedding
+#             return embedding
+#         else:
+#             return self.word_embedding_dict[word]
+# glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.300d.txt'), dim=300)
 
 
 # ## Gather word embeddings for tokens in the training data
@@ -256,12 +257,53 @@ glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.300d.txt'), dim
 # In[ ]:
 
 
-pretrained_embeddings = []
-for i in range(VOCAB_SIZE):
-    pretrained_embeddings.append(glvmodel.get_word_vector(INDEX_2_WORD[i]))
+# pretrained_embeddings = []
+# for i in range(VOCAB_SIZE):
+#     pretrained_embeddings.append(glvmodel.get_word_vector(INDEX_2_WORD[i]))
+
+options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
+weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
+
+# elmo = Elmo(options_file, weight_file, 1, dropout=0).to(device)
 
 
-# In[ ]:
+class ELMoEmbedding():
+    def __init__(self, corpus, options, weights, dim, batch_size=128):
+        self.elmo = Elmo(options, weights, 1, dropout=0).to(device)
+        self.dim = dim
+        self.corpus = corpus
+        self.word_embedding_dict = {}
+
+        # start loading embeddings
+        random.shuffle(corpus)
+        end_index = len(corpus) - len(corpus) % batch_size
+        input_seqs = []
+        target_seqs = []
+        # Choose random pairs
+        for i in range(0, end_index, batch_size):
+            pairs = corpus[i:i+batch_size]
+            texts = [pair[0] + pair[1] for pair in pairs]
+            
+            print(len(texts[0]))
+
+        # self.dim = dim
+        # self.word_embedding_dict = {}
+        # with open(path) as f:
+        #     for line in f:
+        #         values = line.split()
+        #         embedding = values[-dim:]
+        #         word = ''.join(values[:-dim])
+        #         self.word_embedding_dict[word] = np.asarray(embedding, dtype=np.float32)
+    
+    def get_word_vector(self, word):
+        if word not in self.word_embedding_dict.keys():
+            embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
+            self.word_embedding_dict[word] = embedding
+            return embedding
+        else:
+            return self.word_embedding_dict[word]
+elmo_embedding = ELMoEmbedding(train_data, options_file, weight_file, dim=EMBEDDING_DIM)
+
 
 
 # Return a list of indexes, one for each word in the sentence, plus EOS

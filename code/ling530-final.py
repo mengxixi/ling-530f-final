@@ -480,11 +480,11 @@ class DecoderRNN(nn.Module):
 def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
     with torch.no_grad(): 
       
-        char_ids = batch_to_ids([input_seq])
+        char_ids = batch_to_ids([input_seq]).to(device)
         input_embeds = elmo(char_ids)["elmo_representations"][0]
     
         input_lengths = [len(input_seq)]
-        print(input_lengths)
+        # print(input_lengths)
         input_embeds = Variable(input_embeds).transpose(0, 1).to(device)
         
         # Set to not-training mode to disable dropout
@@ -495,7 +495,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
         encoder_outputs, encoder_hidden = encoder(input_embeds, input_lengths, None)
 
         # Create starting vectors for decoder
-        char_ids = batch_to_ids([['<S>']])
+        char_ids = batch_to_ids([['<S>']]).to(device)
         input_embeds = elmo(char_ids)["elmo_representations"][0]
       
         decoder_input = Variable(input_embeds).transpose(0, 1).to(device) # SOS
@@ -503,8 +503,8 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
         for i in range(1, encoder.n_layers):
             decoder_hidden = torch.stack((decoder_hidden,torch.cat((encoder_hidden[i*2],encoder_hidden[i*2+1]),1)))
         decoder_hidden = decoder_hidden.to(device)
-        print(decoder_hidden.size())
-        print(decoder_input.size())
+        # print(decoder_hidden.size())
+        # print(decoder_input.size())
 
         # Store output words and attention states
         decoded_words = []
@@ -529,7 +529,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
                 decoded_words.append(INDEX_2_WORD[int(ni)])
                 
             # Next input is chosen word
-            char_ids = batch_to_ids([[INDEX_2_WORD[int(ni)]]])
+            char_ids = batch_to_ids([[INDEX_2_WORD[int(ni)]]]).to(device)
  
             input_embeds = elmo(char_ids)["elmo_representations"][0]
             decoder_input = Variable(input_embeds).transpose(0, 1).to(device)
@@ -685,12 +685,12 @@ def random_batch(batch_size, data):
         target_seqs = [indexes_from_sentence(pair[0], isHeadline=True) for pair in pairs]
 
         input_sents = [pair[1] for pair in pairs]
-        char_ids = batch_to_ids(input_sents)
+        char_ids = batch_to_ids(input_sents).to(device)
         input_embeds = elmo(char_ids)["elmo_representations"][0]
       
 
         target_sents = [pair[0] +['</S>']for pair in pairs]
-        char_ids = batch_to_ids(target_sents)
+        char_ids = batch_to_ids(target_sents).to(device)
         target_embeds = elmo(char_ids)["elmo_representations"][0]
 
         seq_pairs = sorted(zip(input_seqs, target_seqs, input_embeds, target_embeds), key=lambda p: len(p[0]), reverse=True)
@@ -742,10 +742,10 @@ weight_decay = 1e-4
 options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 
-elmo = Elmo(options_file, weight_file, 1, dropout=0)
+elmo = Elmo(options_file, weight_file, 1, dropout=0).to(device)
 
-SOS_emb = elmo(batch_to_ids([['<S>']]))["elmo_representations"][0].view(EMBEDDING_DIM)
-EOS_emb = elmo(batch_to_ids([['</S>']]))["elmo_representations"][0].view(EMBEDDING_DIM)
+SOS_emb = elmo(batch_to_ids([['<S>']]).to(device))["elmo_representations"][0].view(EMBEDDING_DIM)
+EOS_emb = elmo(batch_to_ids([['</S>']]).to(device))["elmo_representations"][0].view(EMBEDDING_DIM)
 # Initialize models
 encoder = EncoderRNN(VOCAB_SIZE, hidden_size, EMBEDDING_DIM, pretrained_embeddings, n_layers, dropout=dropout).to(device)
 decoder = DecoderRNN(2*hidden_size, VOCAB_SIZE, EMBEDDING_DIM, pretrained_embeddings, n_layers, dropout=dropout).to(device)

@@ -257,53 +257,65 @@ VOCAB_SIZE = len(WORD_2_INDEX)
 # In[ ]:
 
 
-# pretrained_embeddings = []
-# for i in range(VOCAB_SIZE):
-#     pretrained_embeddings.append(glvmodel.get_word_vector(INDEX_2_WORD[i]))
+if os.path.exists(os.path.join(TMP,  "elmo_pretrained.pkl")):
+    with open(os.path.join(TMP,  "elmo_pretrained.pkl"), 'rb') as handle:
+        pretrained_embeddings = pickle.load(handle)
+else:
+    options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
+    weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
 
-options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
-weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
-
-# elmo = Elmo(options_file, weight_file, 1, dropout=0).to(device)
+    # elmo = Elmo(options_file, weight_file, 1, dropout=0).to(device)
 
 
-class ELMoEmbedding():
-    def __init__(self, corpus, options, weights, dim, batch_size=128):
-        self.elmo = Elmo(options, weights, 1, dropout=0).to(device)
-        self.dim = dim
-        self.corpus = corpus
-        self.word_embedding_dict = {}
+    class ELMoEmbedding():
+        def __init__(self, corpus, options, weights, dim, batch_size=32):
+            self.elmo = Elmo(options, weights, 1, dropout=0).to(device)
+            self.dim = dim
+            self.corpus = corpus
+            self.word_embedding_dict = {}
 
-        # start loading embeddings
-        random.shuffle(corpus)
-        end_index = len(corpus) - len(corpus) % batch_size
-        input_seqs = []
-        target_seqs = []
-        # Choose random pairs
-        for i in range(0, end_index, batch_size):
-            pairs = corpus[i:i+batch_size]
-            texts = [pair[0] + pair[1] for pair in pairs]
-            
-            print(len(texts[0]))
+            # start loading embeddings
+            random.shuffle(corpus)
+            end_index = len(corpus) - len(corpus) % batch_size
+            input_seqs = []
+            target_seqs = []
+            # Choose random pairs
+            for i in range(0, end_index, batch_size):
+                pairs = corpus[i:i+batch_size]
+                sentences = [pair[0] + pair[1] for pair in pairs]
+                character_ids = batch_to_ids(sentences).to(device)
+                embeddings = self.elmo(character_ids)["elmo_representations"][0].cpu().data.numpy()
 
-        # self.dim = dim
-        # self.word_embedding_dict = {}
-        # with open(path) as f:
-        #     for line in f:
-        #         values = line.split()
-        #         embedding = values[-dim:]
-        #         word = ''.join(values[:-dim])
-        #         self.word_embedding_dict[word] = np.asarray(embedding, dtype=np.float32)
-    
-    def get_word_vector(self, word):
-        if word not in self.word_embedding_dict.keys():
-            embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
-            self.word_embedding_dict[word] = embedding
-            return embedding
-        else:
-            return self.word_embedding_dict[word]
-elmo_embedding = ELMoEmbedding(train_data, options_file, weight_file, dim=EMBEDDING_DIM)
+                for i, sent in enumerate(sentences):
+                    for j, token in enumerate(sent):
 
+                        token_emb = embeddings[i,j,:]
+                        if token not in self.word_embedding_dict.keys():
+                            self.word_embedding_dict[token] = token_emb
+
+                        else:
+                            token_emb = np.mean([token_emb, self.word_embedding_dict[token]], axis=0)
+                            self.word_embedding_dict[token] = token_emb
+
+        
+        def get_word_vector(self, word):
+            if word not in self.word_embedding_dict.keys():
+                embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
+                self.word_embedding_dict[word] = embedding
+                return embedding
+            else:
+                return self.word_embedding_dict[word]
+
+    logging.info("Start loading training data embeddings with ELMo")
+    elmo_embedding = ELMoEmbedding(train_data, options_file, weight_file, dim=EMBEDDING_DIM)
+    logging.info("Start gathering pretrained embeddings")
+
+    pretrained_embeddings = []
+    for i in range(VOCAB_SIZE):
+        pretrained_embeddings.append(elmo_embedding.get_word_vector(INDEX_2_WORD[i]))
+
+    with open(os.path.join(TMP,  "elmo_pretrained.pkl"), 'wb') as handle:
+        pickle.dump(pretrained_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 # Return a list of indexes, one for each word in the sentence, plus EOS
@@ -408,8 +420,7 @@ class EncoderRNN(nn.Module):
         self.dropout = dropout
         self.embed_size = embed_size
         
-        glove_embeddings = torch.tensor(pretrained_embeddings)
-        self.embedding = nn.Embedding(input_size, embed_size).from_pretrained(glove_embeddings, freeze=True)
+        self.embedding = nn.Embedding(input_size, embed_size).from_pretrained(torch.tensor(pretrained_embeddings), freeze=True)
         
         self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         param_init(self.gru.named_parameters())
@@ -459,8 +470,7 @@ class DecoderRNN(nn.Module):
 
         # Define layers
 
-        glove_embeddings = torch.tensor(pretrained_embeddings)
-        self.embedding = nn.Embedding(output_size, hidden_size).                from_pretrained(glove_embeddings, freeze=True)
+        self.embedding = nn.Embedding(output_size, hidden_size).                from_pretrained(torch.tensor(pretrained_embeddings), freeze=True)
 
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout)
@@ -745,7 +755,6 @@ n_layers = 2
 dropout = 0.5
 
 batch_size = 32
-embed_size = 300
 
 # Configure training/optimization
 clip = 50.0
@@ -755,8 +764,8 @@ n_epochs = 1
 weight_decay = 1e-4
 
 # Initialize models
-encoder = EncoderRNN(VOCAB_SIZE, hidden_size, embed_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
-decoder = DecoderRNN(2*hidden_size, VOCAB_SIZE, embed_size, pretrained_embeddings, n_layers, dropout=dropout).to(device)
+encoder = EncoderRNN(VOCAB_SIZE, hidden_size, EMBEDDING_DIM, pretrained_embeddings, n_layers, dropout=dropout).to(device)
+decoder = DecoderRNN(2*hidden_size, VOCAB_SIZE, EMBEDDING_DIM, pretrained_embeddings, n_layers, dropout=dropout).to(device)
 
 
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)

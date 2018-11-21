@@ -345,16 +345,36 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
+# def masked_adasoft(logits, target, lengths):
+#     loss = 0
+#     for i in range(logits.size(0)):
+#         mask = (np.array(lengths) > i).astype(int)
+#         logits_i = logits[i] * torch.tensor(mask, dtype=torch.float).unsqueeze(1).to(device)
+#         targets_i = target[i] * torch.tensor(mask, dtype=torch.long).to(device)
+#         asm_output = crit(logits_i, targets_i)
+#         loss += asm_output.loss
+
+#     loss /= logits.size(0)
+#     return loss
+
 def masked_adasoft(logits, target, lengths):
     loss = 0
     for i in range(logits.size(0)):
         mask = (np.array(lengths) > i).astype(int)
-        logits_i = logits[i] * torch.tensor(mask, dtype=torch.float).unsqueeze(1).to(device)
-        targets_i = target[i] * torch.tensor(mask, dtype=torch.long).to(device)
+
+        mask = torch.LongTensor(np.nonzero(mask)[0]).to(device)
+        logits_i = logits[i].index_select(0, mask)
+        logits_i = logits_i.to(device)
+        
+        targets_i = target[i].index_select(0, mask).to(device)
+      
         asm_output = crit(logits_i, targets_i)
         loss += asm_output.loss
 
+    # total = sum(lengths)
+   
     loss /= logits.size(0)
+  
     return loss
 
 

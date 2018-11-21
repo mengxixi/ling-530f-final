@@ -475,7 +475,7 @@ class DecoderRNN(nn.Module):
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout)
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
-        self.out = nn.Linear(hidden_size, 1024)
+        self.out = nn.Linear(hidden_size, 512)
         
         # Choose attention model
         self.attn = Attn(hidden_size)
@@ -635,7 +635,7 @@ def train_batch(input_batches, input_lengths, target_batches, target_lengths, ba
     decoder_hidden = decoder_hidden.to(device)
 
     max_target_length = max(target_lengths)
-    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 1024)).to(device)
+    all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, 512)).to(device)
 
 
     # Run through decoder one time step at a time
@@ -758,9 +758,9 @@ batch_size = 32
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 1e-3
+learning_rate = 1e-4
 decoder_learning_ratio = 5.0
-n_epochs = 1
+n_epochs = 2
 weight_decay = 1e-4
 
 # Initialize models
@@ -773,7 +773,7 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
-crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
+crit = nn.AdaptiveLogSoftmaxWithLoss(512, VOCAB_SIZE, [1000, 20000]).to(device)
 
 train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 

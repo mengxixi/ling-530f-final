@@ -1,4 +1,3 @@
-rm ../data/tmp/*
-rm ../models/*ckpt
+rm -r ../data/tmp/
+mkdir ../data/tmp
 echo 'removed cache'
-python ling530-final.py

@@ -62,7 +62,7 @@ MIN_TEXT_LENGTH = 5
 MIN_FREQUENCY   = 4 
 MIN_KNOWN_COUNT = 3
 
-EMBEDDING_DIM = 300
+EMBEDDING_DIM = 200
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -225,7 +225,7 @@ else:
             pickle.dump(item, handle, protocol=pickle.HIGHEST_PROTOCOL)
 dev_text = [text for (_, text) in dev_data]
 dev_true_headline = [headline for (headline,_) in dev_data]
-write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), dev_true_headline)
+#write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), dev_true_headline)
 
 assert len(WORD_2_INDEX) == len(INDEX_2_WORD)
 VOCAB_SIZE = len(WORD_2_INDEX)
@@ -250,7 +250,7 @@ class GloVe():
             return embedding
         else:
             return self.word_embedding_dict[word]
-glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.300d.txt'), dim=300)
+glvmodel = GloVe(os.path.join('..', 'models', 'glove', 'glove.6B.200d.txt'), dim=200)
 
 
 # ## Gather word embeddings for tokens in the training data
@@ -295,7 +295,7 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
-def masked_adasoft(logits, target, lengths):
+def masked_adasoft2(logits, target, lengths):
     loss = 0
     for i in range(logits.size(0)):
         mask = (np.array(lengths) > i).astype(int)
@@ -305,6 +305,26 @@ def masked_adasoft(logits, target, lengths):
         loss += asm_output.loss
 
     loss /= logits.size(0)
+    return loss
+
+def masked_adasoft(logits, target, lengths):
+    loss = 0
+    for i in range(logits.size(0)):
+        mask = (np.array(lengths) > i).astype(int)
+
+        mask = torch.LongTensor(np.nonzero(mask)[0]).to(device)
+        logits_i = logits[i].index_select(0, mask)
+        logits_i = logits_i.to(device)
+        
+        targets_i = target[i].index_select(0, mask).to(device)
+      
+        asm_output = crit(logits_i, targets_i)
+        loss += asm_output.loss
+
+    #total = sum(lengths)
+   
+    loss /= logits.size(0)
+  
     return loss
 
 
@@ -699,12 +719,12 @@ hidden_size = 200
 n_layers = 2
 dropout = 0.5
 
-batch_size = 32
-embed_size = 300
+batch_size = 200
+embed_size = 200
 
 # Configure training/optimization
 clip = 50.0
-learning_rate = 1e-3
+learning_rate = 1e-4
 decoder_learning_ratio = 5.0
 n_epochs = 1
 weight_decay = 1e-4
@@ -717,7 +737,7 @@ decoder = DecoderRNN(2*hidden_size, VOCAB_SIZE, embed_size, pretrained_embedding
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio, weight_decay=weight_decay)
 
-load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
+#load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
 crit = nn.AdaptiveLogSoftmaxWithLoss(1024, VOCAB_SIZE, [1000, 20000]).to(device)
 

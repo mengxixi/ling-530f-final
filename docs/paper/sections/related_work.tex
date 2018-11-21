@@ -1,0 +1,17 @@
+\section{Related Work}
+\label{sec: related_work}
+\todo{rephrase this subsection a bit}
+\subsection{Recurrent Neural Networks}
+In recent years, neural networks have been widely applied in various NLP problems. In particular, recurrent neural networks (RNNs) has gained popularity due to its ability to handle sequential data of arbitrary length, which coincides with the properties of textual data. By sharing model parameters across different timesteps over the input sequence (i.e., a sentence), with enough data, RNNs are able to learn the relevant information encoded in the sequence regardless of how the sequence is presented. The key component of an RNN is a hidden state variable that accumulates the information extracted throughout history in a recursive fashion. The hidden state is then carried over to the current timestep via a non-linear activation function \cite{goodfellow2016}.
+
+Unfortunately, the vanilla RNN does not perform very well with long sequences. When backpropagating through time to update the network parameters, the gradient will likely vanish by the end of the sequence, rendering gradient descent ineffective towards learning \cite{goodfellow2016}. Several variations of RNNs have been proposed to address this issue. Among those, the most popular models are Long Short-Term Memory (LSTM) units \cite{hochreiter1997long} and Gated Recurrent Units (GRU) \cite{cho2014properties}. Both models have been applied in various problems such as supervised sequence labelling \cite{graves2012supervised}, image captioning \cite{vinyals_2015} and speech recognition \cite{graves2013speech} with comparable performance \cite{yin2017comparative}.
+
+\todo{rephrase this subsection a bit}
+\subsection{Word Embedding}
+In the past, a one-hot vector was used to encode individual words from a bag of words vocabulary. However, this approach can be problematic when we want to measure the similarity between words, which is often the interest. Compact representations of words have then been developed with two main approaches: the context-predicting models and the context-counting models \cite{baroni2014don}. The idea behind the predict models is that a word's context defines its meaning. One popular model is \texttt{word2vec} \cite{mikolov2013efficient}, which constructs a neural network predicting a word in a sequence given its surrounding words. The word vectors, or embeddings, are then taken from the weights of a layer in the network. \texttt{FastText} \cite{bojanowski2017enriching} can be seen as an extension of \texttt{word2vec} by representing each word from the character-level n-grams. In comparison, the count models rely on the dimensionality reduction of the word co-occurrence matrix, where each word vector in the lower dimensional co-occurrence matrix preserves some meaning in the higher dimensional space. \texttt{GloVe} \cite{pennington2014glove} is one of the top-performing count model.
+
+\subsection{Text Summarization}
+
+
+
+

@@ -297,7 +297,27 @@ def sequence_mask(sequence_length, max_len=None):
                          .expand_as(seq_range_expand))
     return seq_range_expand < seq_length_expand
 
+def masked_adasoft(logits, target, lengths):
+    loss = 0
+    for i in range(logits.size(0)):
+        mask = (np.array(lengths) > i).astype(int)
 
+        mask = torch.LongTensor(np.nonzero(mask)[0]).to(device)
+        logits_i = logits[i].index_select(0, mask)
+        logits_i = logits_i.to(device)
+        
+        targets_i = target[i].index_select(0, mask).to(device)
+      
+        asm_output = crit(logits_i, targets_i)
+        loss += asm_output.loss
+
+    total = sum(lengths)
+   
+    loss /= total
+  
+    return loss
+
+'''
 def masked_adasoft(logits, target, lengths):
     loss = 0
     for i in range(logits.size(0)):
@@ -309,6 +329,7 @@ def masked_adasoft(logits, target, lengths):
 
     loss /= logits.size(0)
     return loss
+    '''
 
 
 def masked_cross_entropy(logits, target, length):
@@ -519,6 +540,7 @@ def evaluate(input_seq, encoder, decoder, max_length=MAX_LENGTH):
             #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).to(config.device).data
             
             # Choose top word from output
+            
             ni = crit.predict(decoder_output)
             # topv, topi = decoder_output.data.topk(1)
             # ni = topi[0][0]

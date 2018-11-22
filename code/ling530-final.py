@@ -369,11 +369,10 @@ def masked_adasoft(logits, target, lengths):
         targets_i = target[i].index_select(0, mask).to(device)
       
         asm_output = crit(logits_i, targets_i)
-        loss += asm_output.loss
+        loss += asm_output.loss*len(targets_i)
 
-    # total = sum(lengths)
    
-    loss /= logits.size(0)
+    loss /= sum(lengths)
   
     return loss
 

@@ -413,7 +413,7 @@ class EncoderRNN(nn.Module):
         param_init(self.gru.named_parameters())
         
     def forward(self, input_seqs, input_lengths, hidden=None):
-        embedded = self.embedding(input_seqs)
+        embedded = self.embedding(input_seqs).float()
         try:
             packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
         except:
@@ -457,7 +457,7 @@ class DecoderRNN(nn.Module):
 
         # Define layers
 
-        self.embedding = nn.Embedding(output_size, hidden_size).                from_pretrained(torch.tensor(pretrained_embeddings), freeze=True)
+        self.embedding = nn.Embedding(output_size, hidden_size).from_pretrained(torch.tensor(pretrained_embeddings), freeze=True)
 
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout)
@@ -475,10 +475,10 @@ class DecoderRNN(nn.Module):
 
         # Get the embedding of the current input word (last output word)
         batch_size = input_seq.size(0)
-        embedded = self.embedding(input_seq)
+        embedded = self.embedding(input_seq).float()
         embedded = self.embedding_dropout(embedded)
         embedded = embedded.view(1, batch_size, self.embed_size) # S=1 x B x N
-
+        #print(embedded)
         # Get current hidden state from input word and last hidden state
         rnn_output, hidden = self.gru(embedded, last_hidden)
 
@@ -492,8 +492,11 @@ class DecoderRNN(nn.Module):
         rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
         context = context.squeeze(1)       # B x S=1 x N -> B x N
         concat_input = torch.cat((rnn_output, context), 1)
-        concat_output = torch.tanh(self.concat(concat_input))
-
+        #print(concat_input)
+        a = self.concat(concat_input)
+        #print(a)
+        concat_output = torch.tanh(a)
+       
         # Finally predict next token (Luong eq. 6, without softmax)
         output = self.out(concat_output)
 
@@ -747,7 +750,7 @@ batch_size = 32
 clip = 50.0
 learning_rate = 1e-4
 decoder_learning_ratio = 5.0
-n_epochs = 0
+n_epochs = 2
 weight_decay = 1e-4
 
 # Initialize models
@@ -762,9 +765,9 @@ load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOI
 
 crit = nn.AdaptiveLogSoftmaxWithLoss(512, VOCAB_SIZE, [1000, 20000]).to(device)
 
-#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
+train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
-#test(dev_data, encoder, decoder)
+test(dev_data, encoder, decoder)
 
 
 

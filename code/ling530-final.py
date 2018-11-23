@@ -370,7 +370,6 @@ def masked_adasoft(logits, target, lengths):
         asm_output = crit(logits_i, targets_i)
         loss += asm_output.loss*len(targets_i)
 
-    # total = sum(lengths)
    
     loss /= sum(lengths)
   

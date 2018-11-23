@@ -407,13 +407,13 @@ class EncoderRNN(nn.Module):
         self.dropout = dropout
         self.embed_size = embed_size
         
-        self.embedding = nn.Embedding(input_size, embed_size).from_pretrained(torch.tensor(pretrained_embeddings), freeze=True)
+        self.embedding = nn.Embedding(input_size, embed_size).from_pretrained(torch.FloatTensor(pretrained_embeddings), freeze=True)
         
         self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         param_init(self.gru.named_parameters())
         
     def forward(self, input_seqs, input_lengths, hidden=None):
-        embedded = self.embedding(input_seqs).float()
+        embedded = self.embedding(input_seqs)
         try:
             packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
         except:
@@ -457,7 +457,7 @@ class DecoderRNN(nn.Module):
 
         # Define layers
 
-        self.embedding = nn.Embedding(output_size, hidden_size).from_pretrained(torch.tensor(pretrained_embeddings), freeze=True)
+        self.embedding = nn.Embedding(output_size, hidden_size).from_pretrained(torch.FloatTensor(pretrained_embeddings), freeze=True)
 
         self.embedding_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout)
@@ -475,7 +475,7 @@ class DecoderRNN(nn.Module):
 
         # Get the embedding of the current input word (last output word)
         batch_size = input_seq.size(0)
-        embedded = self.embedding(input_seq).float()
+        embedded = self.embedding(input_seq)
         embedded = self.embedding_dropout(embedded)
         embedded = embedded.view(1, batch_size, self.embed_size) # S=1 x B x N
         #print(embedded)
@@ -492,10 +492,8 @@ class DecoderRNN(nn.Module):
         rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
         context = context.squeeze(1)       # B x S=1 x N -> B x N
         concat_input = torch.cat((rnn_output, context), 1)
-        #print(concat_input)
-        a = self.concat(concat_input)
-        #print(a)
-        concat_output = torch.tanh(a)
+
+        concat_output = torch.tanh(self.concat(concat_input))
        
         # Finally predict next token (Luong eq. 6, without softmax)
         output = self.out(concat_output)

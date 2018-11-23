@@ -30,8 +30,8 @@ torch.cuda.manual_seed(4)
 # define directory structure needed for data processing
 TMP_DIR = os.path.join("..", "data", "tmp")
 DATA_DIR = os.path.join("..", "data", "gigawordunsplit")
-TRAIN_DIR = os.path.join("..", "data", "gigaword","train")
-DEV_DIR = os.path.join("..", "data", "gigaword","dev")
+TRAIN_DIR = os.path.join("..", "data", "gigaword","train_sample")
+DEV_DIR = os.path.join("..", "data", "gigaword","valid")
 CHECKPOINT_FNAME = "gigaword.ckpt"
 GOLD_DIR = os.path.join(TMP_DIR, "gold")
 SYSTEM_DIR = os.path.join(TMP_DIR, "system")
@@ -42,12 +42,12 @@ for d in [DATA_DIR, TRAIN_DIR, DEV_DIR, TMP_DIR, GOLD_DIR, SYSTEM_DIR]:
     if not os.path.exists(d):
         os.makedirs(d)
 
-# from pyrouge import Rouge155
-# r = Rouge155()
-# r.system_dir = SYSTEM_DIR
-# r.model_dir = GOLD_DIR
-# r.system_filename_pattern = 'system.(\d+).txt'
-# r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
+from pyrouge import Rouge155
+r = Rouge155()
+r.system_dir = SYSTEM_DIR
+r.model_dir = GOLD_DIR
+r.system_filename_pattern = 'system.(\d+).txt'
+r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 
 PAD_token = 0
 SOS_token = 1
@@ -122,9 +122,14 @@ else:
     def build_freq_dict(data_dir):
         freq_dict = dict()
         for fname in os.listdir(data_dir):
+            logging.info("Working on file: " + fname)
             fpath = os.path.join(data_dir, fname)
             with open(fpath) as f:
+                i = 0
                 for line in f:
+                    if i % 100000 == 0:
+                        logging.info("Processed %d articles", i)
+                    i = i + 1
                     obj = json.loads(line)
                     headline = [t for t in obj['Headline'].split()]
                     text = [t for t in obj['Text'].split()]
@@ -136,10 +141,6 @@ else:
     freq_dict = build_freq_dict(TRAIN_DIR)
     logging.info("Number of unique tokens: %d", len(freq_dict))
 
-
-    # Convert words with frequency less than or equal to 2 to unk.  Ignore the article if it's headline has known word less than 3.
-
-    # In[ ]:
 
 
     vocab_freq_dict = {}
@@ -172,9 +173,14 @@ else:
         data = []
         unk_count = 0
         for fname in os.listdir(data_dir):
+      
             fpath = os.path.join(data_dir, fname)
             with open(fpath) as f:
+                i = 0
                 for line in f:
+                    if i % 100000 == 0:
+                        logging.info("Processed %d articles", i)
+                    i = i + 1
                     obj = json.loads(line)
                     headline = [t for t in obj['Headline'].split()]
                     text = [t for t in obj['Text'].split()][:MAX_TEXT_LENGTH]
@@ -201,9 +207,10 @@ else:
                     data.append((headline, text))
 
         # Now ready to build word indexes
-        vocab_freq_dict['unk'] = unk_count
-        sorted_words = sorted(vocab_freq_dict, key=vocab_freq_dict.get, reverse=True)
-        update_word_index(WORD_2_INDEX, INDEX_2_WORD, sorted_words)
+        if data_dir == TRAIN_DIR:
+            vocab_freq_dict['unk'] = unk_count
+            sorted_words = sorted(vocab_freq_dict, key=vocab_freq_dict.get, reverse=True)
+            update_word_index(WORD_2_INDEX, INDEX_2_WORD, sorted_words)
 
         return data, ignore_count
         
@@ -290,11 +297,14 @@ else:
                     for j, token in enumerate(sent):
 
                         token_emb = embeddings[i,j,:]
+                        token_count = vocab_freq_dict[token]
+                        if token_count  == 0:
+                            print(token)
                         if token not in self.word_embedding_dict.keys():
-                            self.word_embedding_dict[token] = token_emb
+                            self.word_embedding_dict[token] = token_emb/token_count
 
                         else:
-                            token_emb = np.mean([token_emb, self.word_embedding_dict[token]], axis=0)
+                            token_emb = np.sum([token_emb/token_count, self.word_embedding_dict[token]], axis=0)
                             self.word_embedding_dict[token] = token_emb
 
         
@@ -345,17 +355,6 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
-# def masked_adasoft(logits, target, lengths):
-#     loss = 0
-#     for i in range(logits.size(0)):
-#         mask = (np.array(lengths) > i).astype(int)
-#         logits_i = logits[i] * torch.tensor(mask, dtype=torch.float).unsqueeze(1).to(device)
-#         targets_i = target[i] * torch.tensor(mask, dtype=torch.long).to(device)
-#         asm_output = crit(logits_i, targets_i)
-#         loss += asm_output.loss
-
-#     loss /= logits.size(0)
-#     return loss
 
 def masked_adasoft(logits, target, lengths):
     loss = 0
@@ -369,47 +368,16 @@ def masked_adasoft(logits, target, lengths):
         targets_i = target[i].index_select(0, mask).to(device)
       
         asm_output = crit(logits_i, targets_i)
-        loss += asm_output.loss
+        loss += asm_output.loss*len(targets_i)
 
     # total = sum(lengths)
    
-    loss /= logits.size(0)
+    loss /= sum(lengths)
   
     return loss
 
 
-def masked_cross_entropy(logits, target, length):
-    length = Variable(torch.LongTensor(length)).to(device)
-    """
-    Args:
-        logits: A Variable containing a FloatTensor of size
-            (batch, max_len, num_classes) which contains the
-            unnormalized probability for each class.
-        target: A Variable containing a LongTensor of size
-            (batch, max_len) which contains the index of the true
-            class for each corresponding step.
-        length: A Variable containing a LongTensor of size (batch,)
-            which contains the length of each data in a batch.
 
-    Returns:
-        loss: An average loss value masked by the length.
-    """
-
-    # logits_flat: (batch * max_len, num_classes)
-    logits_flat = logits.view(-1, logits.size(-1))
-    # log_probs_flat: (batch * max_len, num_classes)
-    log_probs_flat = F.log_softmax(logits_flat, dim=1)
-    # target_flat: (batch * max_len, 1)
-    target_flat = target.view(-1, 1)
-    # losses_flat: (batch * max_len, 1)
-    losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)
-    # losses: (batch, max_len)
-    losses = losses_flat.view(*target.size())
-    # mask: (batch, max_len)
-    mask = sequence_mask(sequence_length=length, max_len=target.size(1))
-    losses = losses * mask.float()
-    loss = losses.sum() / length.float().sum()
-    return loss
 
 # # copy from model.py
 
@@ -780,7 +748,7 @@ batch_size = 32
 clip = 50.0
 learning_rate = 1e-4
 decoder_learning_ratio = 5.0
-n_epochs = 2
+n_epochs = 0
 weight_decay = 1e-4
 
 # Initialize models
@@ -795,9 +763,9 @@ load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOI
 
 crit = nn.AdaptiveLogSoftmaxWithLoss(512, VOCAB_SIZE, [1000, 20000]).to(device)
 
-train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
+#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
-test(dev_data, encoder, decoder)
+#test(dev_data, encoder, decoder)
 
 
 

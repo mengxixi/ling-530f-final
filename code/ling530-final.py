@@ -32,11 +32,13 @@ TMP_DIR = os.path.join("..", "data", "tmp")
 DATA_DIR = os.path.join("..", "data", "gigawordunsplit")
 TRAIN_DIR = os.path.join("..", "data", "gigaword","train_sample")
 DEV_DIR = os.path.join("..", "data", "gigaword","valid")
+TEST_DIR = os.path.join("..", "data", "gigaword","test")
 CHECKPOINT_FNAME = "gigaword.ckpt"
 GOLD_DIR = os.path.join(TMP_DIR, "gold")
 SYSTEM_DIR = os.path.join(TMP_DIR, "system")
 TRUE_HEADLINE_FNAME = 'gold.A.0.txt'
 PRED_HEADLINE_FNAME = 'system.0.txt'
+
 
 for d in [DATA_DIR, TRAIN_DIR, DEV_DIR, TMP_DIR, GOLD_DIR, SYSTEM_DIR]:
     if not os.path.exists(d):
@@ -717,11 +719,34 @@ def random_batch(batch_size, data):
         target_var = target_var.to(device)
         yield input_var, input_lengths, target_var, target_lengths
 
+
+def read_data_tmp(data_dir):
+        ignore_count = [0,0,0]
+        data = []
+        unk_count = 0
+        for fname in os.listdir(data_dir):
+      
+            fpath = os.path.join(data_dir, fname)
+            with open(fpath) as f:
+                i = 0
+                for line in f:
+                    if i % 100000 == 0:
+                        logging.info("Processed %d articles", i)
+                    i = i + 1
+                    obj = json.loads(line)
+                    headline = [t for t in obj['Headline'].split()]
+                    text = [t for t in obj['Text'].split()][:MAX_TEXT_LENGTH]
+                    data.append((headline, text))
+
+        return data, ignore_count
+        
 def test(dev_data, encoder,decoder):
     logging.info("Start testing")
-    dev_data = dev_data[:1000]
+    dev_data,_ = read_data_tmp(TEST_DIR)
+    random.shuffle(dev_data)
+    dev_data = dev_data[:2000]
     dev_data = [data for data in dev_data if len(data[1])>0]
-    logging.info("%d text have length equal 0", 1000 - len(dev_data))
+    logging.info("%d text have length equal 0", 2000 - len(dev_data))
     
     dev_text = [text for (_, text) in dev_data]
     dev_true_headline = [headline for (headline,_) in dev_data]
@@ -732,7 +757,8 @@ def test(dev_data, encoder,decoder):
     write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
     output = r.convert_and_evaluate()
     print(output)
- 
+
+
     
 
 
@@ -763,7 +789,7 @@ load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOI
 
 crit = nn.AdaptiveLogSoftmaxWithLoss(512, VOCAB_SIZE, [1000, 20000]).to(device)
 
-train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
+#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer,  n_epochs, batch_size, clip)
 
 test(dev_data, encoder, decoder)
 

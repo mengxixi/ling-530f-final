@@ -463,9 +463,9 @@ load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOI
 # Init adasoft 
 crit = nn.AdaptiveLogSoftmaxWithLoss(FC_DIM, VOCAB_SIZE, CUTOFFS).to(device)
 
-train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
+#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
 
-test_rouge(dev_data, encoder, decoder)
+#test_rouge(dev_data, encoder, decoder)
 test_rouge(test_data, encoder, decoder)
 
 

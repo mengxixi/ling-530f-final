@@ -408,15 +408,26 @@ r.model_dir = GOLD_DIR
 r.system_filename_pattern = 'system.(\d+).txt'
 r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 
+def write_headlines_to_file(fpath, headlines):
+    
+    logging.info("Writing %d headlines to file", len(headlines))
+    with open(fpath, 'w+') as f:
+        for h in headlines:
+            f.write(' '.join(h) + '\n')
+
 def test_rouge(data, encoder, decoder):
     logging.info("Start testing")
+
+    original_len = len(data)
+    data = [d for d in data if len(d[1])>0]
+    logging.info("%d text have length equal 0", original_len - len(data))
 
     texts = [text for (_, text) in data]
     true_headlines = [headline for (headline,_) in data]
     write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), true_headlines)
 
     pred_headlines = [evaluate(text, encoder, decoder) for text in texts]
-    assert len(dev_true_headline) == len(pred_headlines)
+    assert len(true_headlines) == len(pred_headlines)
     write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
     output = r.convert_and_evaluate()
     print(output)

@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+from torch.optim.lr_scheduler import StepLR
 from allennlp.modules.elmo import Elmo, batch_to_ids
 from pyrouge import Rouge155
 
@@ -298,6 +299,10 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
         
         # Get training data for this epoch
         for batch_ind, batch_data in enumerate(random_batch(batch_size, pairs)):
+
+            encoder_scheduler.step()
+            decoder_scheduler.step()
+
             input_seqs, input_lengths, target_seqs, target_lengths = batch_data
             # Run the train subroutine
             loss, ec, dc = train_batch(
@@ -442,7 +447,7 @@ DECODER_LEARNING_RATIO = 5.0
 N_EPOCHS = 2
 BATCH_SIZE = 32
 GRAD_CLIP = 50.0
-LR = 1e-4
+LR = 1e-3
 WEIGHT_DECAY = 1e-4
 
 # Adasoft related
@@ -457,15 +462,18 @@ decoder = DecoderRNN(2*HIDDEN_SIZE, VOCAB_SIZE, EMBEDDING_DIM, pretrained_embedd
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=LR*DECODER_LEARNING_RATIO, weight_decay=WEIGHT_DECAY)
 
+encoder_scheduler = StepLR(encoder_optimizer, step_size=60000, gamma=0.1)
+decoder_scheduler = StepLR(decoder_optimizer, step_size=60000, gamma=0.1)
+
 # Load from checkpoint if has one
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)
 
 # Init adasoft 
 crit = nn.AdaptiveLogSoftmaxWithLoss(FC_DIM, VOCAB_SIZE, CUTOFFS).to(device)
 
-train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
+#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
 
-test_rouge(dev_data, encoder, decoder)
+#test_rouge(dev_data, encoder, decoder)
 test_rouge(test_data, encoder, decoder)
 
 

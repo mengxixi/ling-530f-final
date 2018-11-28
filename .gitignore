@@ -172,3 +172,4 @@ log.txt
 gold/
 system/
 *log.*
+*convergence.png

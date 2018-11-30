@@ -54,7 +54,7 @@ MAX_OUTPUT_LENGTH = 35    # max length of summary generated
 MAX_HEADLINE_LENGTH = 30  # max length of headline (target) from the data
 MAX_TEXT_LENGTH = 50      # max length of text body from the data
 MIN_TEXT_LENGTH = 5       # min length of text body for it to be a valid data point
-MIN_FREQUENCY   = 6       # token with frequency <= MIN_FREQUENCY will be converted to 'unk'
+MIN_FREQUENCY   = 4       # token with frequency <= MIN_FREQUENCY will be converted to 'unk'
 MIN_KNOWN_COUNT = 3       # headline (target) must have at least MIN_KNOWN_COUNT number of known tokens
 
 EMBEDDING_DIM = 256

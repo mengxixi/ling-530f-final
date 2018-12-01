@@ -57,7 +57,7 @@ MIN_TEXT_LENGTH = 5       # min length of text body for it to be a valid data po
 MIN_FREQUENCY   = 4       # token with frequency <= MIN_FREQUENCY will be converted to 'unk'
 MIN_KNOWN_COUNT = 3       # headline (target) must have at least MIN_KNOWN_COUNT number of known tokens
 
-EMBEDDING_DIM = 256
+EMBEDDING_DIM = 200
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 pkl_names = ['train_data', 'dev_data', 'test_data', 'word2index', 'index2word']
@@ -79,8 +79,34 @@ print("Number of dev examples: ", len(dev_data))
 print("Number of test examples: ", len(test_data))
 print("Vocabulary size: ", VOCAB_SIZE)
 
-with open(os.path.join(TMP_DIR,  "elmo_pretrained.pkl"), 'rb') as handle:
-    pretrained_embeddings = pickle.load(handle)
+
+class GloVe():
+    def __init__(self, path, dim):
+        self.dim = dim
+        self.word_embedding_dict = {}
+        with open(path) as f:
+            for line in f:
+                values = line.split()
+                embedding = values[-dim:]
+                word = ''.join(values[:-dim])
+                self.word_embedding_dict[word] = np.asarray(embedding, dtype=np.float32)
+    
+    def get_word_vector(self, word):
+        if word not in self.word_embedding_dict.keys():
+            embedding = np.random.uniform(low=-1, high=1, size=self.dim).astype(np.float32)
+            self.word_embedding_dict[word] = embedding
+            return embedding
+        else:
+            return self.word_embedding_dict[word]
+
+glvmodel = GloVe(os.path.join('..', 'models', 'glove.6B.200d.txt'), dim=EMBEDDING_DIM)
+
+pretrained_embeddings = [] # a list of embeddings where the indices correspond to the word in word2idx dictionary
+for i in range(VOCAB_SIZE):
+    pretrained_embeddings.append(glvmodel.get_word_vector(INDEX_2_WORD[i]))
+
+# with open(os.path.join(TMP_DIR,  "elmo_pretrained.pkl"), 'rb') as handle:
+#     pretrained_embeddings = pickle.load(handle)
 
 # Return a list of indexes, one for each word in the sentence, plus EOS
 def indexes_from_sentence(tokens,isHeadline):
@@ -471,7 +497,7 @@ load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOI
 # Init adasoft 
 crit = nn.AdaptiveLogSoftmaxWithLoss(FC_DIM, VOCAB_SIZE, CUTOFFS).to(device)
 
-#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
+train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
 
 #test_rouge(dev_data, encoder, decoder)
 test_rouge(test_data, encoder, decoder)

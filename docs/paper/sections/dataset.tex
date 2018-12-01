@@ -1,13 +1,5 @@
 \section{Dataset}
 \label{sec: dataset}
 
-\begin{enumerate}
-\item Annotated English Gigaword
-\item Extract first paragrah and headline as data (explain why)
-\item Splits followed Rush et al.
-\item tokenize, remove punctuation, lowercase
-\item Summary stats after downsampling
-\end{enumerate}
-
-
-
+For training and evaluation, we used the Annotated English Gigaword dataset \todo{cite}. It contains nearly 10 million documents from 7 news sources. Due to computational constraints, instead of using the full document as input source, we extracted the first paragraph of each document as training input, as well as the news headline as our target summary. This is also consistent with the literature which explored the same dataset. For training, validation and test sets, we used the same data split provided by [xxx] \todo{cite}, which is roughly 80-10-10 \todo{verify this}. We then tokenized the dataset, removed most punctuations and converted all remaining tokens to lowercase. We decided to leave numeric tokens as they are instead of replacing them with ``$\#$'' for the model to generalize and extract information from numeric tokens. Since using the entire training set vocabulary (along with the corresponding embeddings) was limited by the size of our RAM, we were forced to downsample the training set by randomly dropping $40\%$ of the data pairs. To further clean the training set, we removed all examples where the input text length is less than $5$ to ensure we at least have some information to summarize from. We also removed examples with headline length greater than $30$ to ensure we generate a summary that is short and concise. Furthermore, we replaced all tokens with frequency lower than $4$ with the ``UNK'' token, after which we removed all examples where the headline contained less than $3$ known tokens. Finally, we end up with around $3.8$ million training examples with a vocabulary size of around $214$k. \todo{properly state these numbers?} The development set contained $346$k examples which we used for hyperparameter tuning, we randomly sampled $2000$ examples with non-empty text body from the test split as our test set, following the same strategy as [xxx] \todo{cite}.
+\todo{More summary stats like average sent. length, most frequent token, etc.}

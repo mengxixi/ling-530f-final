@@ -173,3 +173,4 @@ gold/
 system/
 *log.*
 *convergence.png
+*.fuse_hidden*

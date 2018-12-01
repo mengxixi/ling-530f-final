@@ -1,9 +1,11 @@
 \section{Experiments}
 \label{sec: exp}
 
+Since the process of gathering the embeddings involving running each sentence in our corpus through ELMo, it is very time-consuming (took about 5 hours). Therefore, we perform this only once and save it to disk and for every subsequent experiments we simply load the persisted embeddings. We have also tried using the ELMo embeddings directly without averaging -- for every minibatch, we generate the ELMo embeddings on the fly as the input to our text summarization model. However, the results were unsatisfactory as the decoder also relies on the previously generated word to generate the next word. If we only have ELMo return an embedding based on a single word, there will be no context and therefore the embedding would not be very meaningful. Even if we run the entire sequence currently genereated through ELMo, at the beginning of training this sequence would likely be non-sensical, rendering ELMo ineffective and therefore prohibits learning of the decoder as the error accumulates throughout training.
+
+
 \begin{enumerate}
-\item how we gathered embeddings (pass in, average, persist)
-\item mention that we tried dynamically generate embeddings from ELMo, result was not satisfying, hypothesize the cause
 \item explain choices of all model parameters
+\item mention our hardware and how long it takes to run 2epochs
 \end{enumerate}
 

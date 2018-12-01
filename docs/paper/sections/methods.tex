@@ -3,6 +3,11 @@
 
 
 For model input, we used a pretrained ELMo language model \cite{peters2018deep} to generate 256-dimension embeddings for our vocabulary. As discussed earlier, ELMo's main advantage is its ability to generate contextualized word embeddings. In other words, it is able to generate a different embedding for the same word that appears in different contexts. This is crucial as it allows our text summarization model to disambiguate between multiple meanings of a given word, but the implication is that we can no longer use a fixed dictionary as a pretrained embeddings input. To address this issue, we ran every sentence in our training set through the pretrained ELMo model, and save the average of all the embeddings we receive for a given word. Since this is a time-consuming process, we only perform this once and save the generated embedding to disk. One may argue that by taking the average -- thereby having the same embedding for a given word regardless of its context -- defeats the purpose of employing the contextualized representation. However, we believe that the average essentially incorporates all the meanings of a given word into the same embedding, and therefore should do no harm in the downstream task. \todo{show comparison between using ELMo vs Glove} In table [x] \todo{table?} we compare the results of the same architecture using Glove embeddings vs ELMo average embeddings. 
+
+One of the main challenges we had was battling with the size of the dataset. Even after downsampling to only $60\%$ of the training data and replacing low frequency words, our vocabulary size was still quite high. The main issue is that when the decoder predicts the next word, it relies on the last fully connected layer to map from hidden space to the output space, which is the same size as our vocabulary. The number of model parameters then immediately scales with the size of the vocabulary due to the fully connected layer. To circumvent this issue, we use adaptive softmax \todo{Keep working on this part}
+
+
+
 \begin{enumerate}
 \item model architecture
 \item adaptive softmax 

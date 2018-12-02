@@ -318,7 +318,7 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
                 running_loss = 0
                 logging.info("Iteration: %d running loss: %f", batch_ind, avg_running_loss)
             
-            if batch_ind % 100 == 0:
+            if batch_ind % 10000 == 0:
                 logging.info("Iteration: %d, evaluating", batch_ind)
                 evaluate_randomly(encoder, decoder, pairs)
 
@@ -465,7 +465,7 @@ LR = 1e-3
 WEIGHT_DECAY = 1e-4
 
 # Adasoft related
-CUTOFFS = [1000, 20000]
+CUTOFFS = [1000, 10000, 20000]
 FC_DIM = 512
 
 # Init models
@@ -485,7 +485,7 @@ load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOI
 # Init adasoft 
 crit = nn.AdaptiveLogSoftmaxWithLoss(FC_DIM, VOCAB_SIZE, CUTOFFS).to(device)
 
-#train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
+train(train_data, encoder, decoder, encoder_optimizer, decoder_optimizer, N_EPOCHS, BATCH_SIZE, GRAD_CLIP)
 
 #test_rouge(dev_data, encoder, decoder)
 test_rouge(test_data, encoder, decoder)

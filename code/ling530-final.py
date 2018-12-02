@@ -413,27 +413,41 @@ r.model_dir = GOLD_DIR
 r.system_filename_pattern = 'system.(\d+).txt'
 r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 
-def write_headlines_to_file(fpath, headlines):
-    
+def write_headlines_to_file(template, directory, headlines):        
     logging.info("Writing %d headlines to file", len(headlines))
-    with open(fpath, 'w+') as f:
-        for h in headlines:
-            f.write(' '.join(h) + '\n')
+    for i, line in enumerate(headlines):
+        fpath = os.path.join(directory, template % i)
+        with open(fpath, 'w+') as f:
+            f.write(' '.join(line)+'\n')
 
 def test_rouge(data, encoder, decoder):
+    # some clean up
+    shutil.rmtree(GOLD_DIR)
+    os.mkdir(GOLD_DIR)
+    shutil.rmtree(SYSTEM_DIR)
+    os.mkdir(SYSTEM_DIR)
+    
+    filtered_data = []
+    for headline, text in data:
+        ## TODO: Temporary
+        if len(headline) > MAX_HEADLINE_LENGTH:
+            continue
+        else:
+            filtered_data.append((headline, text))
+
     logging.info("Start testing")
 
-    original_len = len(data)
-    data = [d for d in data if len(d[1])>0]
-    logging.info("%d text have length equal 0", original_len - len(data))
-
-    texts = [text for (_, text) in data]
-    true_headlines = [headline for (headline,_) in data]
-    write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), true_headlines)
+    original_len = len(filtered_data)
+    filtered_data = [d for d in filtered_data if len(d[1])>0]
+    logging.info("%d text have length equal 0", original_len - len(filtered_data))
+    
+    texts = [text for (_, text) in filtered_data]
+    true_headlines = [headline for (headline,_) in filtered_data]
+    write_headlines_to_file("gold.A.%d.txt", GOLD_DIR, true_headlines)
 
     pred_headlines = [evaluate(text, encoder, decoder) for text in texts]
     assert len(true_headlines) == len(pred_headlines)
-    write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
+    write_headlines_to_file("system.%d.txt", SYSTEM_DIR, pred_headlines)
     output = r.convert_and_evaluate()
     print(output)
 

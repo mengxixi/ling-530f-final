@@ -3,6 +3,31 @@
 
 We use the Recall-Oriented Understudy for Gisting Evaluation (ROUGE) metrics \cite{lin2004rouge} to evaluate our text summarization system. To be consistent with the literature, our models are evaluated with ROUGE-1 (overlap of 1-grams), ROUGE-2 (overlap of bigrams) and ROUGE-L (longest common subsequence) using full-length F1-scores. Although ROUGE is the most widely adopted metric in text summarization, it is not always effective when measuring the success of such systems. As noted by \cite{cohan2016revisiting}, ROUGE calculates the scores purely based on the lexical overlap between the documents. Therefore, it can be misleading when the system outputs a paraphrase of the ground-truth summary but using different words, or even just a different ordering of the words.
 
+\begin{table*}[ht]
+\centering
+\caption{Gigaword test set summarization results with full-length F1 ROUGE scores (as previous work).}
+\begin{tabular}{|l|l|l|l|} 
+\hline
+Models                                        & \multicolumn{1}{c|}{ROUGE-1} & \multicolumn{1}{c|}{ROUGE-2} & \multicolumn{1}{c|}{ROUGE-L}  \\ 
+\hline
+\multicolumn{4}{|c|}{Previous Work}                                                                                                         \\ 
+\hline
+Re\^{}3 Sum \cite{cao2018retrieve}         & 37.04                        & 19.03                        & 34.46                         \\ 
+\hline
+words-lvt5k-1sent \cite{nallapati2016abstractive} & 36.40                        & 17.70                        & 33.71                         \\ 
+\hline
+ABS+ \cite{rush2015neural}              & 31.00                        & 12.56                        & 28.34                         \\ 
+\hline
+\multicolumn{4}{|c|}{Our Models}                                                                                                            \\ 
+\hline
+Seq2Seq + ELMo                                &                              &                              &                               \\ 
+\hline
+Seq2Seq + Glove                               &                              &                              &                               \\ 
+\hline
+Seq2Seq + fastText                            &                              &                              &                               \\
+\hline
+\end{tabular}
+\end{table*}
 
 \begin{enumerate}
 \item table for our model and others

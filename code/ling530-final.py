@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+from torch.optim.lr_scheduler import StepLR
 from allennlp.modules.elmo import Elmo, batch_to_ids
 from pyrouge import Rouge155
 
@@ -53,7 +54,7 @@ MAX_OUTPUT_LENGTH = 35    # max length of summary generated
 MAX_HEADLINE_LENGTH = 30  # max length of headline (target) from the data
 MAX_TEXT_LENGTH = 50      # max length of text body from the data
 MIN_TEXT_LENGTH = 5       # min length of text body for it to be a valid data point
-MIN_FREQUENCY   = 6       # token with frequency <= MIN_FREQUENCY will be converted to 'unk'
+MIN_FREQUENCY   = 4       # token with frequency <= MIN_FREQUENCY will be converted to 'unk'
 MIN_KNOWN_COUNT = 3       # headline (target) must have at least MIN_KNOWN_COUNT number of known tokens
 
 EMBEDDING_DIM = 256
@@ -298,6 +299,10 @@ def train(pairs, encoder, decoder, encoder_optimizer, decoder_optimizer, n_epoch
         
         # Get training data for this epoch
         for batch_ind, batch_data in enumerate(random_batch(batch_size, pairs)):
+
+            encoder_scheduler.step()
+            decoder_scheduler.step()
+
             input_seqs, input_lengths, target_seqs, target_lengths = batch_data
             # Run the train subroutine
             loss, ec, dc = train_batch(
@@ -408,27 +413,41 @@ r.model_dir = GOLD_DIR
 r.system_filename_pattern = 'system.(\d+).txt'
 r.model_filename_pattern = 'gold.[A-Z].#ID#.txt'
 
-def write_headlines_to_file(fpath, headlines):
-    
+def write_headlines_to_file(template, directory, headlines):        
     logging.info("Writing %d headlines to file", len(headlines))
-    with open(fpath, 'w+') as f:
-        for h in headlines:
-            f.write(' '.join(h) + '\n')
+    for i, line in enumerate(headlines):
+        fpath = os.path.join(directory, template % i)
+        with open(fpath, 'w+') as f:
+            f.write(' '.join(line)+'\n')
 
 def test_rouge(data, encoder, decoder):
+    # some clean up
+    shutil.rmtree(GOLD_DIR)
+    os.mkdir(GOLD_DIR)
+    shutil.rmtree(SYSTEM_DIR)
+    os.mkdir(SYSTEM_DIR)
+    
+    filtered_data = []
+    for headline, text in data:
+        ## TODO: Temporary
+        if len(headline) > MAX_HEADLINE_LENGTH:
+            continue
+        else:
+            filtered_data.append((headline, text))
+
     logging.info("Start testing")
 
-    original_len = len(data)
-    data = [d for d in data if len(d[1])>0]
-    logging.info("%d text have length equal 0", original_len - len(data))
-
-    texts = [text for (_, text) in data]
-    true_headlines = [headline for (headline,_) in data]
-    write_headlines_to_file(os.path.join(GOLD_DIR,TRUE_HEADLINE_FNAME), true_headlines)
+    original_len = len(filtered_data)
+    filtered_data = [d for d in filtered_data if len(d[1])>0]
+    logging.info("%d text have length equal 0", original_len - len(filtered_data))
+    
+    texts = [text for (_, text) in filtered_data]
+    true_headlines = [headline for (headline,_) in filtered_data]
+    write_headlines_to_file("gold.A.%d.txt", GOLD_DIR, true_headlines)
 
     pred_headlines = [evaluate(text, encoder, decoder) for text in texts]
     assert len(true_headlines) == len(pred_headlines)
-    write_headlines_to_file(os.path.join(SYSTEM_DIR, PRED_HEADLINE_FNAME), pred_headlines)
+    write_headlines_to_file("system.%d.txt", SYSTEM_DIR, pred_headlines)
     output = r.convert_and_evaluate()
     print(output)
 
@@ -442,7 +461,7 @@ DECODER_LEARNING_RATIO = 5.0
 N_EPOCHS = 2
 BATCH_SIZE = 32
 GRAD_CLIP = 50.0
-LR = 1e-4
+LR = 1e-3
 WEIGHT_DECAY = 1e-4
 
 # Adasoft related
@@ -456,6 +475,9 @@ decoder = DecoderRNN(2*HIDDEN_SIZE, VOCAB_SIZE, EMBEDDING_DIM, pretrained_embedd
 # Init optimizers
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=LR*DECODER_LEARNING_RATIO, weight_decay=WEIGHT_DECAY)
+
+encoder_scheduler = StepLR(encoder_optimizer, step_size=60000, gamma=0.1)
+decoder_scheduler = StepLR(decoder_optimizer, step_size=60000, gamma=0.1)
 
 # Load from checkpoint if has one
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)

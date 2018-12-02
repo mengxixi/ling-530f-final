@@ -158,8 +158,10 @@ Backup[ ]of[ ]*.numbers/
 # Misc
 nltk_data/
 data/tmp/
+data/tmp_copy
 data/gigaword/
 data/gigawordunsplit/
+models_copy/
 models/glove/
 models/glove*.txt
 models/crawl-300d-2M-subword.bin

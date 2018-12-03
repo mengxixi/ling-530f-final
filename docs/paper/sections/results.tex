@@ -31,9 +31,16 @@ Seq2Seq + fastText                            &                              &  
 
 We use the Recall-Oriented Understudy for Gisting Evaluation (ROUGE) metrics \cite{lin2004rouge} to evaluate our text summarization system. To be consistent with the literature, our models are evaluated with ROUGE-1 (overlap of 1-grams), ROUGE-2 (overlap of bigrams) and ROUGE-L (longest common subsequence) using full-length F1-scores. Although ROUGE is the most widely adopted metric in text summarization, it is not always effective when measuring the success of such systems. As noted by \cite{cohan2016revisiting}, ROUGE calculates the scores purely based on the lexical overlap between the documents. Therefore, it can be misleading when the system outputs a paraphrase of the ground-truth summary but using different words, or even just a different ordering of the words. In particular, ROUGE-2 is always the lowest of the three metrics due to the different ordering of the system generated sentences, and the imperfection in the fluency is usually the cause behind the unsatisfactory performance on this finer-grained metric.
 
+Since the ABS+ model \cite{rush2015neural} is among one of the earliest work in abstractive text summarization using a sequence-to-sequence model that provides an evaluation on the same dataset splits, we will treat this as our baseline. As one can see, our best performing model (Seq2Seq+ELMo) still has much room for improvement comparing to the baseline. There are several reasons behind the results we obtain. First, due to computational constraints, we were only able to utilize $60\%$ of the training set as mentioned earlier, which significantly reduced the amount of information our model could potentially generalize from. In addition, we allow for only $2$ epochs of training for each model since every epoch takes about $5$ hours, and we would prefer faster iterations of tuning and changes to better understand our model's behaviour. Moreover, we were ambitious in expecting the model to learn the mappings between numbers in numerals and numbers spelled out (i.e.\ 11 people v.s.\ eleven people), since news headlines often use numerals to keep the length within a certain limit, while spelling the numbers in words in the text body for professionality. In most literature numbers are replaced with the $\#$ sign; however, since we did not perform such replacement, our ROUGE scores will be impacted whenever the numbers fail to match up. 
+
+
+\noindent\fbox{%
+    \parbox{\linewidth}{%
+        The quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog. the quick brown fox jumps right over the lazy dog.
+    }%
+}
 
 \begin{enumerate}
-\item what's our baseline? what's everyone's baseline?
-\item talk about what might be the reason for our ROUGE to be especially low (we did not replace numbers with pound, etc)
 \item give positive and negative examples for qualitative assessment
+\item give interpretations for human-bias
 \end{enumerate}

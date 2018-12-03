@@ -7,5 +7,7 @@ Our model is trained with a 2-layer Gated Recurrent Unit (GRU) on both the encod
 
 The text summarization model is trained on an NVIDIA GTX 1060 GPU in shuffled batches of size $32$. Since our training set is quite large, we only ran our model for $2$ epochs and the loss would converge by the end, as shown in \todo{reference the same convergence figure}. Excluding any preprocessing time, training one model takes about $10$ hours.
 
+We also compared the same model architecture and training procedure while using $300$-dimension \texttt{Glove} embeddings and $300$-dimension \texttt{FastText} embeddings, the results are summarized in Table \ref{tab: compare_embed}.
+
 
 

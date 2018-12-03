@@ -465,8 +465,8 @@ LR = 1e-3
 WEIGHT_DECAY = 1e-4
 
 # Adasoft related
-CUTOFFS = [1000, 10000, 20000]
-FC_DIM = 512
+CUTOFFS = [1000, 20000]
+FC_DIM = 1024
 
 # Init models
 encoder = EncoderRNN(VOCAB_SIZE, HIDDEN_SIZE, EMBEDDING_DIM, pretrained_embeddings, N_LAYERS, dropout=DROPOUT_PROB).to(device)

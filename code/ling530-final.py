@@ -454,7 +454,7 @@ def test_rouge(data, encoder, decoder):
 # Model architecture related
 HIDDEN_SIZE = 200
 N_LAYERS = 2
-DROPOUT_PROB = 0.5
+DROPOUT_PROB = 0.25
 DECODER_LEARNING_RATIO = 5.0
 
 # Training and optimization related
@@ -476,8 +476,8 @@ decoder = DecoderRNN(2*HIDDEN_SIZE, VOCAB_SIZE, EMBEDDING_DIM, pretrained_embedd
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=LR*DECODER_LEARNING_RATIO, weight_decay=WEIGHT_DECAY)
 
-encoder_scheduler = StepLR(encoder_optimizer, step_size=60000, gamma=0.1)
-decoder_scheduler = StepLR(decoder_optimizer, step_size=60000, gamma=0.1)
+encoder_scheduler = StepLR(encoder_optimizer, step_size=60000, gamma=0.25)
+decoder_scheduler = StepLR(decoder_optimizer, step_size=60000, gamma=0.25)
 
 # Load from checkpoint if has one
 load_checkpoint(encoder, decoder, encoder_optimizer, decoder_optimizer, CHECKPOINT_FNAME)

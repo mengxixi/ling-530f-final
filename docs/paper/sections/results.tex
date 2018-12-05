@@ -35,7 +35,7 @@ Since the ABS+ model \cite{rush2015neural} is among one of the earliest work in 
 
 It is interesting to note that using $200$-dimension \texttt{Glove} embeddings yielded results are quite close to that of using the averaged \texttt{ELMo} embeddings under the same architecture and training procedure. We believe this is because the \texttt{Glove} embeddings were trained on the same Annotated English Gigaword dataset which coincides to what we use for this task. On the other hand, the $300$-dimension \texttt{FastText} embeddings were trained on a different dataset, therefore despite having a larger embedding size, it was not able to perform as well as using the \texttt{ELMo} embeddings.
 
-For qualitative assessment of our summarization model, we handpicked a few example summary pairs (gold and system) along with the input text to analyze. In Figure \ref{fig: examples_good}, we show examples where our model was able to generate a decent summary. \todo{elaborate} In Figure \ref{fig: examples_bad}, we can see that the model's capabilities is still far from the performance of a human expert. \todo{elaborate: grammar, wording, etc}
+For qualitative assessment of our summarization model, we handpicked a few example summary pairs (gold and system) along with the input text to analyze. In Figure \ref{fig: examples_good}, we show examples where our model was able to generate a decent summary. As one can see, despite minor grammatical issues (i.e.\ beat v.s.\ beats), our system-generated summaries are able to capture all the relevant information from the input text correctly in a concise manner. It is worth noting that in Example 3, the system-generated summary has more of a neutral tone, whereas the gold headline written by a human expert can be interpreted as being more biased in this case. We believe that to some readers, this particular human-written headline depicts a slightly negative image for the subject of interest (British government) by presenting only the more graphical details of the input without stating the subject's ultimate goal. However, the definition of neutrality in text summarization is open to debate and is beyond the scope of this report. In Figure \ref{fig: examples_bad}, we can see that the model's capabilities is still far from the performance of a human expert in terms of overall coherence and content accuracy. In the first example, the system-generated summary clearly predicted a location more frequently seen in the corpus (Germany) in place of the correct location (Budapest). In the second example, although the system seems to have captured the main theme of the input, it misses some of the details and does not read coherently. The last example shows a situation where the input contains too many low frequency words that the model fails to generated anything meaningful other than the ``UNK'' tokens. 
 
 
 \begin{figure}[ht]
@@ -84,6 +84,3 @@ For qualitative assessment of our summarization model, we handpicked a few examp
     }%
 }
 \end{figure}
-
-
-\todo{interpretations for human bias}

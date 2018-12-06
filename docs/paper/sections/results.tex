@@ -29,34 +29,31 @@ Seq2Seq + fastText                            & 19.67                           
 \end{table}
 
 
-We use the Recall-Oriented Understudy for Gisting Evaluation (ROUGE) metrics \cite{lin2004rouge} to evaluate our text summarization system. To be consistent with the literature, our models are evaluated with ROUGE-1 (overlap of 1-grams), ROUGE-2 (overlap of bigrams) and ROUGE-L (longest common subsequence) using full-length F1-scores. Although ROUGE is the most widely adopted metric in text summarization, it is not always effective when measuring the success of such systems. As noted by \cite{cohan2016revisiting}, ROUGE calculates the scores purely based on the lexical overlap between the documents. Therefore, it can be misleading when the system outputs a paraphrase of the ground-truth summary but using different words, or even just a different ordering of the words. As an extreme example, the system and gold pair ``fatal accident on highway 1'' v.s.\ ``two dead in motor vehicle collision in b.c.\ '' describe arguably the same event but has a ROUGE score of $0$ due to the lack of n-gram overlaps. In particular, ROUGE-2 is always the lowest of the three metrics due to the different ordering of the system generated sentences, and the imperfection in the fluency is usually the cause behind the unsatisfactory performance on this finer-grained metric.
+We use the Recall-Oriented Understudy for Gisting Evaluation (ROUGE) metrics \cite{lin2004rouge} to evaluate our text summarization system. To be consistent with the literature, our models are evaluated with ROUGE-1 (overlap of 1-grams), ROUGE-2 (overlap of bigrams) and ROUGE-L (longest common subsequence) using full-length F1-scores. Although ROUGE is the most widely adopted metric in text summarization, it is not always effective when measuring the success of such systems. As noted by \cite{cohan2016revisiting}, ROUGE calculates the scores purely based on the lexical overlap between the documents. Therefore, it can be misleading when the system outputs a paraphrase of the ground-truth summary but using different words, or even just a different ordering of the words. As an extreme example, the system and gold pair ``fatal accident on highway 1'' v.s.\ ``two dead in motor vehicle collision in b.c.\ '' describe the same event but has a ROUGE score of $0$ due to the lack of n-gram overlaps. In particular, ROUGE-2 is always the lowest of the three metrics due to the different ordering of the system generated sentences, and the imperfection in the fluency is usually the cause behind the unsatisfactory performance on this finer-grained metric.
 
 Since the ABS+ model \cite{rush2015neural} is one of the earliest work in abstractive text summarization using a sequence-to-sequence model that provides an evaluation on the same dataset splits, we treat this as our baseline. A comparison between our models and models from previous work is shown in Table \ref{tab: compare_embed}. As one can see, our best performing model (Seq2Seq+ELMo) still has much room for improvement comparing to the baseline. There are several reasons behind the results we obtain. First, due to computational constraints, we were only able to utilize $60\%$ of the training set as mentioned earlier, which significantly reduced the amount of information our model could potentially generalize from. In addition, we allow for only $2$ epochs of training for each model since every epoch takes about $5$ hours, and we would prefer faster iterations of tuning and changes to better understand our model's behaviour. Moreover, we were ambitious in expecting the model to learn the mappings between numbers in numerals and numbers spelled out (i.e.\ 11 people v.s.\ eleven people), since news headlines often use numerals to keep the length within a certain limit, while spelling the numbers in words in the text body for professionality. In most literature numbers are replaced with the $\#$ sign; however, since we did not perform such replacement, our ROUGE scores will be impacted whenever the numbers fail to match up. 
 
-It is interesting to note that using $200$-dimension \texttt{GloVe} embeddings yielded results are quite close to that of using the averaged \texttt{ELMo} embeddings under the same architecture and training procedure. We believe that this is because the \texttt{Glove} embeddings were trained on the same Annotated English Gigaword dataset which coincides to what we use for this task. On the other hand, the $300$-dimension \texttt{FastText} embeddings were trained on a different dataset. Therefore, despite having a larger embedding size, it was not able to perform as well as using the \texttt{ELMo} embeddings.
-
-For qualitative assessment of our summarization model, we handpicked a few example summary pairs (gold and system) along with the input text to analyze. Figure \ref{fig: examples_good} shows examples where our model was able to generate a decent summary. As one can see, despite minor grammatical issues (i.e.\ beat v.s.\ beats), our system-generated summaries are able to capture all the relevant information from the input text correctly in a concise manner. It is worth noting that in Example 3, the system-generated summary has more of a neutral tone, whereas the gold headline written by a human expert can be interpreted as being more biased in this case. We believe that to some readers, this particular human-written headline depicts a slightly negative image for the subject of interest (British government) by presenting only the more graphical details of the input without stating the subject's ultimate goal. However, the definition of neutrality in text summarization is open to debate and is beyond the scope of this report. In Figure \ref{fig: examples_bad}, we can see that the model's capabilities is still far from the performance of a human expert in terms of overall coherence and content accuracy. In the first example, the system-generated summary clearly predicted a location more frequently seen in the corpus (Germany) in place of the correct location (Budapest). In the second example, although the system seems to have captured the main theme of the input, it misses some of the details and does not read coherently. The last example shows a situation where the input contains too many low frequency words that the model fails to generated anything meaningful other than the ``UNK'' tokens. 
-
+It is interesting to note that using $200$-dimension \texttt{GloVe} embeddings yield results are quite close to that of using the averaged \texttt{ELMo} embeddings under the same architecture and training procedure. We believe that this is because the \texttt{Glove} embeddings were trained on the same Annotated English Gigaword dataset which coincides to what we use for this task. On the other hand, the $300$-dimension \texttt{FastText} embeddings were trained on a different dataset. Therefore, despite having a larger embedding size, it is not able to perform as well as using the \texttt{ELMo} embeddings.
 
 \begin{figure}[ht]
 \caption{Positive examples from the test set. \textbf{I} is the input, \textbf{G} is the gold headline, and \textbf{S} is system generated by our Seq2Seq+ELMo model.}
 \label{fig: examples_good}
 \noindent\fbox{%
     \parbox{\linewidth}{%
-    	Example 1:\\
-    	\textbf{I}: ten people were killed when an explosion ripped through a minibus in the southern russian city of vladikavkaz on thursday the local interior ministry said quoted by interfax amid conflicting reports on the cause\\
-    	\textbf{S}: 10 killed in blast in southern russia <EOS>\\
-    	\textbf{G}: urgent 10 dead in southern russia blast report\\
+        Example 1:\\
+        \textbf{I}: ten people were killed when an explosion ripped through a minibus in the southern russian city of vladikavkaz on thursday the local interior ministry said quoted by interfax amid conflicting reports on the cause\\
+        \textbf{S}: 10 killed in blast in southern russia <EOS>\\
+        \textbf{G}: urgent 10 dead in southern russia blast report\\
 
-    	Example 2:\\
-    	\textbf{I}: malaysia beat bangladesh 1-0 in a world cup asian zone group one qualifying match in jeddah saudi arabia on monday\\
-    	\textbf{S}: malaysia beat bangladesh in world cup <EOS>\\
-    	\textbf{G}: malaysia beats bangladesh 1-0 in world cup qualifier\\
+        Example 2:\\
+        \textbf{I}: malaysia beat bangladesh 1-0 in a world cup asian zone group one qualifying match in jeddah saudi arabia on monday\\
+        \textbf{S}: malaysia beat bangladesh in world cup <EOS>\\
+        \textbf{G}: malaysia beats bangladesh 1-0 in world cup qualifier\\
 
-    	Example 3:\\
-    	\textbf{I}: british agriculture minister douglas hogg on wednesday announced proposals to slaughter up to 40,000 cows in an effort to speed the elimination of mad cow disease from british cattle herds\\
-    	\textbf{S}: british minister to fight against mad cow disease <EOS>\\
-    	\textbf{G}: london proposes to eu to slaughter up to 40000 cows
+        Example 3:\\
+        \textbf{I}: british agriculture minister douglas hogg on wednesday announced proposals to slaughter up to 40,000 cows in an effort to speed the elimination of mad cow disease from british cattle herds\\
+        \textbf{S}: british minister to fight against mad cow disease <EOS>\\
+        \textbf{G}: london proposes to eu to slaughter up to 40000 cows
     }%
 }
 \end{figure}
@@ -67,20 +64,22 @@ For qualitative assessment of our summarization model, we handpicked a few examp
 \label{fig: examples_bad}
 \noindent\fbox{%
     \parbox{\linewidth}{%
-    	Example 1:\\
-    	\textbf{I}: the 14th budapest international book festival opened in the hungarian capital on thursday with italian author umberto eco as the special guest of the four-day event\\
-    	\textbf{S}: new international book festival opens in germany <EOS>\\
-    	\textbf{G}: budapest international book festival opens\\
+        Example 1:\\
+        \textbf{I}: the 14th budapest international book festival opened in the hungarian capital on thursday with italian author umberto eco as the special guest of the four-day event\\
+        \textbf{S}: new international book festival opens in germany <EOS>\\
+        \textbf{G}: budapest international book festival opens\\
 
-    	Example 2:\\
-    	\textbf{I}: thai cabinet has authorized the ministry of public health moph to amend a ministerial regulation to effectively ban visibility of cigarettes for sale\\
-    	\textbf{S}: thai cabinet to be on health <EOS>\\
-    	\textbf{G}: thai cabinet gives green light to restrict cigarette sales\\
+        Example 2:\\
+        \textbf{I}: thai cabinet has authorized the ministry of public health moph to amend a ministerial regulation to effectively ban visibility of cigarettes for sale\\
+        \textbf{S}: thai cabinet to be on health <EOS>\\
+        \textbf{G}: thai cabinet gives green light to restrict cigarette sales\\
 
-    	Example 3:\\
-    	\textbf{I}: brandie burton and betsy king mastered the wind the rain and a typically unhelpful links course thursday to card the only sub-par rounds and share the lead in the women s british open\\
-    	\textbf{S}: unk and the unk <EOS>\\
-    	\textbf{G}: burton king lead as pak struggles in the wind eds ams recasts adds more quotes detail
+        Example 3:\\
+        \textbf{I}: brandie burton and betsy king mastered the wind the rain and a typically unhelpful links course thursday to card the only sub-par rounds and share the lead in the women s british open\\
+        \textbf{S}: unk and the unk <EOS>\\
+        \textbf{G}: burton king lead as pak struggles in the wind eds ams recasts adds more quotes detail
     }%
 }
 \end{figure}
+
+For qualitative assessment of our summarization model, we handpick a few example summary pairs (gold and system) along with the input text to analyze. Figure \ref{fig: examples_good} shows examples where our model was able to generate a decent summary. As one can see, despite minor grammatical issues (i.e.\ beat v.s.\ beats), our system-generated summaries are able to capture all the relevant information from the input text correctly in a concise manner. It is worth noting that in Example 3, the system-generated summary has more of a neutral tone, whereas the gold headline written by a human expert can be interpreted as being more biased in this case. We believe that to some readers, this particular human-written headline depicts a slightly negative image for the subject of interest (British government) by presenting only the more graphical details of the input without stating the subject's ultimate goal. However, the definition of neutrality in text summarization is open to debate and is beyond the scope of this report. In Figure \ref{fig: examples_bad}, we can see that the model's capabilities is still far from the performance of a human expert in terms of overall coherence and content accuracy. In the first example, the system-generated summary clearly predicted a location more frequently seen in the corpus (Germany) in place of the correct location (Budapest). In the second example, although the system seems to have captured the main theme of the input, it misses some of the details and does not read coherently. The last example shows a situation where the input contains too many low frequency words that the model fails to generate anything meaningful other than the ``UNK'' tokens. 
